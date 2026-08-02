@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import { squads } from "@/data/squads";
 
 export default function Players() {
-  const [openSeason, setOpenSeason] = useState(squads[0]?.season ?? null);
+  const [openSeason, setOpenSeason] = useState<string | null>(squads[0]?.season ?? null);
 
   return (
     <main className="bg-black pt-16 md:pt-20">
