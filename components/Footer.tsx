@@ -1,46 +1,79 @@
+import Image from "next/image";
+
 export default function Footer() {
   return (
-    <footer className="bg-gray-950 py-12 text-white">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="grid gap-8 md:grid-cols-3">
-          <div>
-            <h3 className="text-2xl font-bold">
-              We Are Langsning
-            </h3>
+    <footer className="bg-gray-950 text-white">
 
-            <p className="mt-4 text-gray-400">
-              An unofficial fan website celebrating Langsning Football
-              Club, its history, players, and supporters.
+      {/* Call to Action */}
+      <div className="border-b border-gray-800 bg-red-700 py-16 text-center">
+        <div className="mx-auto max-w-2xl px-6">
+          <h3 className="text-3xl md:text-4xl font-bold uppercase tracking-wide">
+            Join the Movement
+          </h3>
+          <p className="mt-4 text-white/90 leading-7">
+            Every fan, every memory, every match — this is a hub built by
+            supporters, for supporters. Be part of the story of Langsning FC.
+          </p>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-6 py-16">
+        <div className="grid gap-12 md:grid-cols-12">
+
+          {/* Brand */}
+          <div className="md:col-span-5">
+            <div className="flex items-center gap-3">
+              <Image
+                src="/logo.png"
+                alt="Langsning FC"
+                width={40}
+                height={40}
+              />
+              <div>
+                <h3 className="text-lg font-bold leading-tight">
+                  LANGSNING FC
+                </h3>
+                <p className="text-xs uppercase tracking-[0.3em] text-red-500">
+                  Fan Hub
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-5 max-w-xs text-sm leading-6 text-gray-400">
+              An unofficial fan website celebrating Langsning Football Club —
+              its history, players, and the supporters who never stopped
+              showing up.
             </p>
           </div>
 
-          <div>
-            <h4 className="font-semibold uppercase tracking-wider">
-              Explore
+          {/* For Fans */}
+          <div className="md:col-span-4">
+            <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+              For Fans
             </h4>
-
-            <ul className="mt-4 space-y-2 text-gray-400">
-              <li>History</li>
-              <li>Honours</li>
-              <li>Timeline</li>
-              <li>Fan Zone</li>
-            </ul>
+            <p className="mt-5 text-sm leading-6 text-gray-400">
+              Have a photo, story, or memory of Langsning FC you'd like
+              to see featured here? Fan contributions will be welcomed
+              on this site soon.
+            </p>
           </div>
 
-          <div>
-            <h4 className="font-semibold uppercase tracking-wider">
+          {/* Disclaimer */}
+          <div className="md:col-span-3">
+            <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
               Disclaimer
             </h4>
-
-            <p className="mt-4 text-gray-400">
-              This is an unofficial supporter project and is not
-              affiliated with Langsning FC or any football association.
+            <p className="mt-5 text-sm leading-6 text-gray-400">
+              This is an unofficial supporter project and is not affiliated
+              with Langsning FC or any football association.
             </p>
           </div>
+
         </div>
 
-        <div className="mt-10 border-t border-gray-800 pt-6 text-sm text-gray-500">
-          © {new Date().getFullYear()} We Are Langsning. Built by fans.
+        <div className="mt-14 flex flex-col gap-4 border-t border-gray-800 pt-6 text-xs text-gray-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} We Are Langsning. Built by fans.</p>
+          <p className="text-gray-600">Jaiaw Langsning, Shillong, Meghalaya</p>
         </div>
       </div>
     </footer>
