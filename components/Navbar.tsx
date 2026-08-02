@@ -6,10 +6,10 @@ import Link from "next/link";
 
 const links = [
   { href: "/", label: "Home" },
-  { href: "#", label: "History" },
-  { href: "#", label: "Matches" },
-  { href: "#", label: "Players" },
-  { href: "#", label: "Gallery" },
+  { href: "/history", label: "History" },
+  { href: "/matches", label: "Matches" },
+  { href: "/players", label: "Players" },
+  { href: "/gallery", label: "Gallery" },
 ];
 
 export default function Navbar() {
