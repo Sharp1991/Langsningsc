@@ -1,0 +1,35 @@
+export const squads = [
+  {
+    season: "2026",
+    note: "Reigning SPL champions and Meghalaya State League runners-up. New signings ahead of the 2026 SPL season and the club's first-ever Durand Cup campaign.",
+    achievement: "Meghalaya State League Runners-up · First-ever Durand Cup appearance",
+    players: [
+      { name: "Samuel L Kynshi", position: "Midfielder", note: "Ex-Shillong Lajong FC, Mawlai SC, Punjab FC, Real Kashmir FC" },
+      { name: "Richie Kharbani", position: "Midfielder", note: "Returning, via Garhwal FC" },
+      { name: "Rohan Manar", position: "Forward", note: "Joined from Garhwal FC" },
+      { name: "Alex Manar", position: "Midfielder", note: "Featured for Meghalaya U-20" },
+      { name: "Monush Lapang", position: "Forward", note: "Joined from Rymbai Shkenshynriah" },
+      { name: "Mebanshngain Kurkalang", position: "Midfielder", note: "Joined from Rangdajied United" },
+      { name: "Wadajied Kynsai Ryngkhlem", position: "Midfielder", note: "Joined from Shillong Lajong" },
+      { name: "Rituraj Boruah", position: "Defender", note: "Joined from Chhaygaon" },
+    ],
+  },
+  {
+    season: "2025",
+    note: "Squad that won the club's third SPL title, going unbeaten through the campaign.",
+    achievement: "Shillong Premier League Champions (Unbeaten)",
+    players: [
+      { name: "Rajat Paul Lyngdoh", position: "Goalkeeper" },
+      { name: "Eborlang Nongtdu", position: "Goalkeeper" },
+      { name: "Ronney Chel Khongrangjem", position: "Defender" },
+      { name: "Atlanson Kharmaw", position: "Defender" },
+      { name: "Justarfill Syiemlieh", position: "Defender" },
+      { name: "Damonlang Pathaw", position: "Midfielder" },
+      { name: "Arnesius Marwein", position: "Midfielder" },
+      { name: "Roikhihbha Nongtdu", position: "Midfielder" },
+      { name: "Donlad Diengdoh", position: "Forward", note: "Top scorer" },
+      { name: "Shemjingmut Kharmyndai", position: "Forward" },
+      { name: "Nelson Rymbai", position: "Forward" },
+    ],
+  },
+];
