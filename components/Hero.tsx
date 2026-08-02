@@ -5,7 +5,7 @@ export default function Hero() {
     <section className="relative h-[90vh] md:h-screen overflow-hidden pt-16 md:pt-20">
 
       <Image
-        src="/hero.jpg"
+        src="/hero.png"
         alt="Langsning FC"
         fill
         priority
@@ -31,10 +31,6 @@ export default function Hero() {
           <p className="mt-5 md:mt-8 max-w-xl text-base md:text-xl text-gray-200">
             United by Football. Driven by Passion.
           </p>
-
-          <button className="mt-7 md:mt-10 w-full sm:w-auto bg-red-600 px-6 md:px-8 py-3.5 md:py-4 font-bold uppercase tracking-wider text-white transition hover:bg-red-700">
-            Explore Club →
-          </button>
 
         </div>
       </div>
