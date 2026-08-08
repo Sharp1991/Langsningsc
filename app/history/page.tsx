@@ -1,5 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ClubPerformance from "@/components/ClubPerformance";
 
 export default function History() {
   return (
@@ -61,7 +62,7 @@ export default function History() {
 
             <p>
               This page exists to preserve that story. What follows is the
-              club's timeline and honours   the seasons, the titles, and the
+              club's timeline and honours — the seasons, the titles, and the
               moments that built the legacy of Langsning FC.
             </p>
 
@@ -69,6 +70,8 @@ export default function History() {
 
         </div>
       </section>
+
+      <ClubPerformance />
 
       <Footer />
     </main>
