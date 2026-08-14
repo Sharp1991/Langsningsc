@@ -1,46 +1,159 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
 
-export const revalidate = 60;
+type Team = {
+  name: string;
+  short_name?: string | null;
+};
 
-async function getMatches() {
-  const { data, error } = await supabase
-    .from("matches")
-    .select("*")
-    .order("date", { ascending: false });
+type Match = {
+  id: number;
+  competition: string;
+  season: string;
+  matchday?: string | null;
+  date: string;
+  venue?: string | null;
+  home_team_id: number;
+  away_team_id: number;
+  home_score?: number | null;
+  away_score?: number | null;
+  status?: string | null;
+  home_team?: Team | null;
+  away_team?: Team | null;
+};
 
-  if (error) {
-    throw new Error(`Matches query failed: ${error.message}`);
-  }
-console.log("MATCHES FROM SUPABASE:", data);
-  return data || [];
+function StatusPill({ status }: { status?: string | null }) {
+  const isFinished = status === "finished";
+  const isLive = status === "live";
+  const label = isFinished ? "Full Time" : isLive ? "Live" : status || "Scheduled";
+
+  return (
+    <span
+      className={`mono inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] ${
+        isLive
+          ? "border-[#c8102e] text-[#c8102e]"
+          : isFinished
+          ? "border-[#1c1817]/15 text-[#83766c]"
+          : "border-[#83766c]/30 text-[#83766c]"
+      }`}
+    >
+      {isLive && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#c8102e]" />}
+      {label}
+    </span>
+  );
 }
 
-export default async function MatchesPage() {
-  const matches = await getMatches();
-
-  const grouped: Record<string, Record<string, any[]>> = {};
-
-  matches.forEach((match: any) => {
-    const season = match.season || "Unknown Season";
-    const competition = match.competition || "Other Matches";
-
-    if (!grouped[season]) {
-      grouped[season] = {};
-    }
-
-    if (!grouped[season][competition]) {
-      grouped[season][competition] = [];
-    }
-
-    grouped[season][competition].push(match);
-  });
-
-  const seasons = Object.keys(grouped).sort((a, b) =>
-    b.localeCompare(a)
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      className={`shrink-0 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+    >
+      <path d="M6 3.5L10.5 8L6 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
+}
+
+function Collapsible({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+      style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+    >
+      <div className="overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
+function SkeletonBlock() {
+  return (
+    <div className="animate-pulse overflow-hidden rounded-lg border border-[#1c1817]/10 bg-white">
+      <div className="flex items-center justify-between px-6 py-5">
+        <div className="flex items-center gap-4">
+          <div className="h-4 w-4 rounded bg-[#1c1817]/10" />
+          <div className="h-8 w-24 rounded bg-[#1c1817]/10" />
+        </div>
+        <div className="h-3 w-16 rounded bg-[#1c1817]/10" />
+      </div>
+    </div>
+  );
+}
+
+export default function MatchesPage() {
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [openSeasons, setOpenSeasons] = useState<Record<string, boolean>>({});
+  const [openCompetitions, setOpenCompetitions] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    async function loadMatches() {
+      const { data, error } = await supabase
+        .from("matches")
+        .select(
+          `
+          *,
+          home_team:teams!matches_home_team_id_fkey ( name, short_name ),
+          away_team:teams!matches_away_team_id_fkey ( name, short_name )
+        `
+        )
+        .order("date", { ascending: false });
+
+      if (error) {
+        console.error("MATCHES ERROR:", error);
+        setError(true);
+        setMatches([]);
+      } else {
+        setMatches(data || []);
+        // auto-expand the most recent season so the page isn't empty on load
+        const seasons = Array.from(new Set((data || []).map((m: Match) => m.season || "Unknown Season")));
+        seasons.sort((a, b) => b.localeCompare(a));
+        if (seasons[0]) setOpenSeasons({ [seasons[0]]: true });
+      }
+
+      setLoading(false);
+    }
+
+    loadMatches();
+  }, []);
+
+  const grouped = useMemo(() => {
+    const map: Record<string, Record<string, Match[]>> = {};
+    matches.forEach((match) => {
+      const season = match.season || "Unknown Season";
+      const competition = match.competition || "Other Matches";
+      if (!map[season]) map[season] = {};
+      if (!map[season][competition]) map[season][competition] = [];
+      map[season][competition].push(match);
+    });
+    return map;
+  }, [matches]);
+
+  const seasons = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+  const seasonCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    seasons.forEach((season) => {
+      counts[season] = Object.values(grouped[season]).reduce((sum, arr) => sum + arr.length, 0);
+    });
+    return counts;
+  }, [seasons, grouped]);
+
+  function toggleSeason(season: string) {
+    setOpenSeasons((prev) => ({ ...prev, [season]: !prev[season] }));
+  }
+
+  function toggleCompetition(key: string) {
+    setOpenCompetitions((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   return (
     <main className="min-h-screen bg-[#faf8f4] text-[#1c1817]">
@@ -48,178 +161,162 @@ export default async function MatchesPage() {
 
       <section className="border-b border-[#1c1817]/10 px-6 pb-12 pt-32">
         <div className="mx-auto max-w-4xl">
-          <p className="mono text-xs uppercase tracking-[0.3em] text-[#c8102e]">
-            Langsning FC
-          </p>
-
-          <h1
-            className="mt-3 text-5xl font-semibold md:text-6xl"
-            style={{ fontFamily: "'Fraunces', serif" }}
-          >
+          <p className="mono text-xs uppercase tracking-[0.3em] text-[#c8102e]">Langsning FC</p>
+          <h1 className="mt-3 text-5xl font-semibold md:text-6xl" style={{ fontFamily: "'Fraunces', serif" }}>
             Match Centre
           </h1>
-
-          <p className="mt-4 max-w-xl text-[#83766c]">
-            Results, fixtures and match records from Langsning FC.
-          </p>
+          <p className="mt-4 max-w-xl text-[#83766c]">Results, fixtures and match records from Langsning FC.</p>
         </div>
       </section>
 
       <section className="px-6 py-12">
         <div className="mx-auto max-w-4xl">
-
-          {seasons.length === 0 ? (
-            <div className="border border-[#1c1817]/10 bg-white p-10 text-center">
-              <p className="mono text-xs uppercase tracking-[0.2em] text-[#83766c]">
-                No matches recorded yet
+          {loading ? (
+            <div className="space-y-4">
+              <SkeletonBlock />
+              <SkeletonBlock />
+              <SkeletonBlock />
+            </div>
+          ) : error ? (
+            <div className="rounded-lg border border-[#c8102e]/20 bg-[#c8102e]/5 p-10 text-center">
+              <p className="mono text-xs uppercase tracking-[0.2em] text-[#c8102e]">
+                Couldn't load matches — please try again shortly
               </p>
             </div>
+          ) : seasons.length === 0 ? (
+            <div className="rounded-lg border border-[#1c1817]/10 bg-white p-10 text-center">
+              <p className="mono text-xs uppercase tracking-[0.2em] text-[#83766c]">No matches recorded yet</p>
+            </div>
           ) : (
-            <div className="space-y-10">
+            <div className="space-y-4">
+              {seasons.map((season) => {
+                const seasonOpen = openSeasons[season] ?? false;
 
-              {seasons.map((season) => (
-                <section key={season}>
-
-                  {/* YEAR */}
-                  <div className="mb-5 flex items-center gap-4">
-                    <h2
-                      className="text-4xl font-semibold"
-                      style={{ fontFamily: "'Fraunces', serif" }}
+                return (
+                  <div
+                    key={season}
+                    className="overflow-hidden rounded-lg border border-[#1c1817]/10 bg-white shadow-sm transition-shadow hover:shadow-md"
+                  >
+                    {/* YEAR */}
+                    <button
+                      onClick={() => toggleSeason(season)}
+                      aria-expanded={seasonOpen}
+                      className="flex w-full items-center justify-between px-6 py-5 text-left transition-colors hover:bg-[#f4f1eb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8102e]/40"
                     >
-                      {season}
-                    </h2>
+                      <div className="flex items-center gap-4 text-[#c8102e]">
+                        <ChevronIcon open={seasonOpen} />
+                        <h2 className="text-4xl font-semibold text-[#1c1817]" style={{ fontFamily: "'Fraunces', serif" }}>
+                          {season}
+                        </h2>
+                      </div>
+                      <span className="mono text-xs text-[#83766c]">{seasonCounts[season]} matches</span>
+                    </button>
 
-                    <div className="h-px flex-1 bg-[#1c1817]/10" />
-                  </div>
+                    {/* TOURNAMENTS */}
+                    <Collapsible open={seasonOpen}>
+                      <div className="border-t border-[#1c1817]/10 bg-[#faf8f4] p-4">
+                        <div className="space-y-3">
+                          {Object.entries(grouped[season]).map(([competition, competitionMatches]) => {
+                            const key = `${season}-${competition}`;
+                            const competitionOpen = openCompetitions[key] ?? false;
 
-                  {/* TOURNAMENTS */}
-                  <div className="space-y-5">
-
-                    {Object.entries(grouped[season]).map(
-                      ([competition, competitionMatches]) => (
-                        <div
-                          key={competition}
-                          className="overflow-hidden border border-[#1c1817]/10 bg-white"
-                        >
-
-                          {/* TOURNAMENT */}
-                          <div className="border-b border-[#1c1817]/10 bg-[#f4f1eb] px-5 py-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="mono text-[10px] uppercase tracking-[0.2em] text-[#83766c]">
-                                  Tournament
-                                </p>
-
-                                <h3 className="mt-1 text-lg font-semibold">
-                                  {competition}
-                                </h3>
-                              </div>
-
-                              <span className="mono text-xs text-[#83766c]">
-                                {competitionMatches.length}{" "}
-                                {competitionMatches.length === 1
-                                  ? "match"
-                                  : "matches"}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* MATCHES */}
-                          <div className="divide-y divide-[#1c1817]/8">
-
-                            {competitionMatches.map((match: any) => {
-                              const date = match.date
-                                ? new Date(
-                                    match.date
-                                  ).toLocaleDateString("en-IN", {
-                                    day: "numeric",
-                                    month: "short",
-                                  })
-                                : "";
-
-                              return (
-                                <Link
-                                  key={match.id}
-                                  href={`/matches/${match.id}`}
-                                  className="group block px-5 py-5 transition hover:bg-[#faf8f4]"
+                            return (
+                              <div
+                                key={key}
+                                className="overflow-hidden rounded-md border border-[#1c1817]/10 bg-white"
+                              >
+                                {/* TOURNAMENT */}
+                                <button
+                                  onClick={() => toggleCompetition(key)}
+                                  aria-expanded={competitionOpen}
+                                  className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-[#f4f1eb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8102e]/40"
                                 >
-                                  <div className="grid grid-cols-[70px_1fr_auto] items-center gap-4">
-
-                                    {/* DATE */}
+                                  <div className="flex items-center gap-3 text-[#c8102e]">
+                                    <ChevronIcon open={competitionOpen} />
                                     <div>
-                                      <p className="mono text-xs text-[#83766c]">
-                                        {date}
+                                      <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#83766c]">
+                                        Tournament
                                       </p>
-
-                                      {match.matchday && (
-                                        <p className="mono mt-1 text-[9px] uppercase tracking-wide text-[#83766c]/70">
-                                          MD {match.matchday}
-                                        </p>
-                                      )}
+                                      <h3 className="mt-1 font-semibold text-[#1c1817]">{competition}</h3>
                                     </div>
-
-                                    {/* SCORE */}
-                                    <div className="space-y-2">
-
-                                      <div className="flex items-center justify-between gap-4">
-                                        <span className="font-semibold">
-                                          Langsning FC
-                                        </span>
-
-                                        <span className="mono font-semibold">
-                                          {match.home_score ?? "–"}
-                                        </span>
-                                      </div>
-
-                                      <div className="flex items-center justify-between gap-4">
-                                        <span className="font-semibold">
-                                          Mumbay FC
-                                        </span>
-
-                                        <span className="mono font-semibold">
-                                          {match.away_score ?? "–"}
-                                        </span>
-                                      </div>
-
-                                    </div>
-
-                                    {/* STATUS */}
-                                    <div className="text-right">
-                                      <p className="mono text-[10px] uppercase tracking-[0.15em] text-[#c8102e]">
-                                        {match.status === "finished"
-                                          ? "Full Time"
-                                          : match.status || "Scheduled"}
-                                      </p>
-
-                                      <p className="mt-2 text-lg text-[#83766c] transition group-hover:translate-x-1">
-                                        →
-                                      </p>
-                                    </div>
-
                                   </div>
+                                  <span className="mono text-xs text-[#83766c]">{competitionMatches.length}</span>
+                                </button>
 
-                                  {/* VENUE */}
-                                  {match.venue && (
-                                    <p className="mono mt-3 pl-[86px] text-[10px] uppercase tracking-wide text-[#83766c]/70">
-                                      {match.venue}
-                                    </p>
-                                  )}
-                                </Link>
-                              );
-                            })}
+                                {/* MATCHES */}
+                                <Collapsible open={competitionOpen}>
+                                  <div className="divide-y divide-[#1c1817]/8 border-t border-[#1c1817]/10">
+                                    {competitionMatches.map((match) => {
+                                      const date = match.date
+                                        ? new Date(match.date).toLocaleDateString("en-IN", {
+                                            day: "numeric",
+                                            month: "short",
+                                          })
+                                        : "";
 
-                          </div>
+                                      return (
+                                        <Link
+                                          key={match.id}
+                                          href={`/matches/${match.id}`}
+                                          className="group block px-5 py-5 transition-colors hover:bg-[#faf8f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#c8102e]/40"
+                                        >
+                                          <div className="grid grid-cols-[70px_1fr_auto] items-center gap-4">
+                                            {/* DATE */}
+                                            <div>
+                                              <p className="mono text-xs text-[#83766c]">{date}</p>
+                                              {match.matchday && (
+                                                <p className="mono mt-1 text-[9px] uppercase tracking-wide text-[#83766c]/70">
+                                                  MD {match.matchday}
+                                                </p>
+                                              )}
+                                            </div>
+
+                                            {/* SCORE */}
+                                            <div className="space-y-2">
+                                              <div className="flex items-center justify-between gap-4">
+                                                <span className="font-semibold">
+                                                  {match.home_team?.name || `Team ${match.home_team_id}`}
+                                                </span>
+                                                <span className="mono font-semibold">{match.home_score ?? "–"}</span>
+                                              </div>
+                                              <div className="flex items-center justify-between gap-4">
+                                                <span className="font-semibold">
+                                                  {match.away_team?.name || `Team ${match.away_team_id}`}
+                                                </span>
+                                                <span className="mono font-semibold">{match.away_score ?? "–"}</span>
+                                              </div>
+                                            </div>
+
+                                            {/* STATUS */}
+                                            <div className="flex flex-col items-end gap-2">
+                                              <StatusPill status={match.status} />
+                                              <span className="text-lg text-[#83766c] transition-transform group-hover:translate-x-1">
+                                                →
+                                              </span>
+                                            </div>
+                                          </div>
+
+                                          {match.venue && (
+                                            <p className="mono mt-3 pl-[86px] text-[10px] uppercase tracking-wide text-[#83766c]/70">
+                                              {match.venue}
+                                            </p>
+                                          )}
+                                        </Link>
+                                      );
+                                    })}
+                                  </div>
+                                </Collapsible>
+                              </div>
+                            );
+                          })}
                         </div>
-                      )
-                    )}
-
+                      </div>
+                    </Collapsible>
                   </div>
-                </section>
-              ))}
-
+                );
+              })}
             </div>
           )}
-
         </div>
       </section>
 
