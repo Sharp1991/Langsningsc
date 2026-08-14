@@ -1,248 +1,227 @@
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/lib/supabase";
-import { notFound } from "next/navigation";
+import Link from "next/link";
 
-export const revalidate = 60; // re-fetch at most once a minute
+export const revalidate = 60;
 
-async function getMatch(id) {
-  const { data: match, error } = await supabase
+async function getMatches() {
+  const { data, error } = await supabase
     .from("matches")
-    .select(
-      `
-      id, competition, season, matchday, date, venue, status,
-      home_score, away_score,
-      home_team:teams!matches_home_team_id_fkey ( id, name, short_name, crest_url ),
-      away_team:teams!matches_away_team_id_fkey ( id, name, short_name, crest_url )
-    `
-    )
-    .eq("id", id)
-    .single();
+    .select("*")
+    .order("date", { ascending: false });
 
-  if (error || !match) return null;
+  if (error) {
+    throw new Error(`Matches query failed: ${error.message}`);
+  }
 
-  const [{ data: events }, { data: lineup }, { data: stats }] = await Promise.all([
-    supabase
-      .from("match_events")
-      .select("id, minute, type, detail, team_id, player:players(name), player_name_raw")
-      .eq("match_id", id)
-      .order("id", { ascending: true }),
+  return data || [];
+}
 
-    supabase
-      .from("match_lineups")
-      .select("id, shirt_number, position, is_starting, sub_minute, player:players(name), player_name_raw")
-      .eq("match_id", id)
-      .eq("team_id", match.home_team?.id)
-      .order("is_starting", { ascending: false })
-      .order("shirt_number", { ascending: true }),
+export default async function MatchesPage() {
+  const matches = await getMatches();
 
-    supabase.from("match_stats").select("stat_name, home_value, away_value").eq("match_id", id),
-  ]);
+  const grouped: Record<string, Record<string, any[]>> = {};
 
-  // stats come back as rows — turn into a lookup so missing stats are just absent keys
-  const statMap = {};
-  (stats || []).forEach((s) => {
-    statMap[s.stat_name] = { home: s.home_value, away: s.away_value };
+  matches.forEach((match: any) => {
+    const season = match.season || "Unknown Season";
+    const competition = match.competition || "Other Matches";
+
+    if (!grouped[season]) {
+      grouped[season] = {};
+    }
+
+    if (!grouped[season][competition]) {
+      grouped[season][competition] = [];
+    }
+
+    grouped[season][competition].push(match);
   });
 
-  return {
-    ...match,
-    events: events || [],
-    starting: (lineup || []).filter((p) => p.is_starting),
-    subs: (lineup || []).filter((p) => !p.is_starting),
-    stats: statMap,
-  };
-}
-
-function StatRow({ label, home, away }) {
-  if (home == null || away == null) return null;
-  const total = Number(home) + Number(away) || 1;
-  const homePct = (Number(home) / total) * 100;
-  return (
-    <div className="mb-5">
-      <p className="mono text-center text-[11px] uppercase tracking-[0.15em] text-[#83766c] mb-2">
-        {label}
-      </p>
-      <div className="mono flex justify-between text-sm mb-1.5">
-        <span className="font-semibold text-[#c8102e]">{home}</span>
-        <span className="text-[#83766c]">{away}</span>
-      </div>
-      <div className="flex h-1.5 rounded-full overflow-hidden bg-[#e9e4da]">
-        <div className="bg-[#c8102e]" style={{ width: `${homePct}%` }} />
-        <div className="bg-[#83766c]/50" style={{ width: `${100 - homePct}%` }} />
-      </div>
-    </div>
+  const seasons = Object.keys(grouped).sort((a, b) =>
+    b.localeCompare(a)
   );
-}
-
-export default async function MatchDetail({ params }) {
-  const match = await getMatch(params.id);
-  if (!match) notFound();
-
-  const { home_team: home, away_team: away } = match;
-  const isFinished = match.status === "finished";
 
   return (
-    <main className="bg-black pt-16 md:pt-20">
+    <main className="min-h-screen bg-[#faf8f4] text-[#1c1817]">
       <Navbar />
 
-      {/* Breadcrumb */}
-      <div className="bg-[#faf8f4] pt-8 px-6">
-        <nav className="mono mx-auto max-w-3xl text-xs tracking-wide text-[#83766c]">
-          <a href="/" className="hover:text-[#c8102e]">Home</a>
-          <span className="mx-2 text-[#c8102e]/40">/</span>
-          <a href="/matches" className="hover:text-[#c8102e]">Match Centre</a>
-          <span className="mx-2 text-[#c8102e]/40">/</span>
-          <a href={`/matches?season=${match.season}`} className="hover:text-[#c8102e]">{match.season}</a>
-          <span className="mx-2 text-[#c8102e]/40">/</span>
-          <span className="text-[#1c1817]">{match.date}</span>
-        </nav>
-      </div>
-
-      {/* Scoreboard */}
-      <section className="bg-[#faf8f4] pb-14 pt-8">
-        <div className="mx-auto max-w-3xl px-6">
-          <p className="mono text-center text-xs uppercase tracking-[0.3em] text-[#c8102e]">
-            {match.competition}
-            {match.matchday ? ` · Matchday ${match.matchday}` : ""}
-          </p>
-          <p className="mono mt-2 text-center text-xs text-[#83766c]">
-            {match.date}
-            {match.venue ? ` — ${match.venue}` : ""}
+      <section className="border-b border-[#1c1817]/10 px-6 pb-12 pt-32">
+        <div className="mx-auto max-w-4xl">
+          <p className="mono text-xs uppercase tracking-[0.3em] text-[#c8102e]">
+            Langsning FC
           </p>
 
-          <div className="mt-8 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-            <div className="flex flex-col items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-[#1c1817]/10 bg-white font-semibold text-[#c8102e]">
-                {home?.crest_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={home.crest_url} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  home?.short_name || home?.name?.slice(0, 3).toUpperCase()
-                )}
-              </div>
-              <p className="font-semibold text-[#1c1817] text-center">{home?.name}</p>
-            </div>
+          <h1
+            className="mt-3 text-5xl font-semibold md:text-6xl"
+            style={{ fontFamily: "'Fraunces', serif" }}
+          >
+            Match Centre
+          </h1>
 
-            <div className="text-center">
-              <div
-                className="flex items-center gap-3 text-5xl md:text-6xl font-semibold text-[#1c1817]"
-                style={{ fontFamily: "'Fraunces', serif" }}
-              >
-                <span>{match.home_score ?? "–"}</span>
-                <span className="text-[#83766c] text-3xl">–</span>
-                <span>{match.away_score ?? "–"}</span>
-              </div>
-              <p className="mono mt-2 text-[11px] uppercase tracking-[0.2em] text-[#83766c]">
-                {isFinished ? "Full Time" : match.status || "Scheduled"}
-              </p>
-            </div>
-
-            <div className="flex flex-col items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-[#1c1817]/10 bg-white font-semibold text-[#83766c]">
-                {away?.crest_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={away.crest_url} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  away?.short_name || away?.name?.slice(0, 3).toUpperCase()
-                )}
-              </div>
-              <p className="font-semibold text-[#1c1817] text-center">{away?.name}</p>
-            </div>
-          </div>
+          <p className="mt-4 max-w-xl text-[#83766c]">
+            Results, fixtures and match records from Langsning FC.
+          </p>
         </div>
       </section>
 
-      {/* Timeline */}
-      {match.events.length > 0 && (
-        <section className="bg-[#faf8f4] border-t border-[#1c1817]/8 py-14">
-          <div className="mx-auto max-w-3xl px-6">
-            <h2 className="text-2xl font-semibold text-[#1c1817]" style={{ fontFamily: "'Fraunces', serif" }}>
-              Match Timeline
-            </h2>
+      <section className="px-6 py-12">
+        <div className="mx-auto max-w-4xl">
 
-            <div className="relative mt-8 pl-14">
-              <div className="absolute left-6 top-1 bottom-1 w-px bg-[#1c1817]/10" />
-              {match.events.map((e) => (
-                <div key={e.id} className="relative pb-6 last:pb-0">
-                  <span className="mono absolute -left-14 top-0 w-8 text-right text-sm font-semibold text-[#c8102e]">
-                    {e.minute}'
-                  </span>
-                  <span
-                    className={`absolute -left-[34px] top-1 h-2 w-2 rounded-full border-2 bg-[#faf8f4] ${
-                      e.type === "yellow_card" ? "border-yellow-600" : e.type === "red_card" ? "border-red-800" : "border-[#c8102e]"
-                    }`}
-                  />
-                  <p className="mono inline-block rounded border border-[#1c1817]/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[#83766c] mr-2">
-                    {e.type.replace("_", " ")}
-                  </p>
-                  <p className="mt-1.5 font-medium text-[#1c1817]">
-                    {e.player?.name || e.player_name_raw || "Unknown player"}
-                  </p>
-                  {e.detail && <p className="text-sm text-[#83766c]">{e.detail}</p>}
-                </div>
-              ))}
+          {seasons.length === 0 ? (
+            <div className="border border-[#1c1817]/10 bg-white p-10 text-center">
+              <p className="mono text-xs uppercase tracking-[0.2em] text-[#83766c]">
+                No matches recorded yet
+              </p>
             </div>
-          </div>
-        </section>
-      )}
+          ) : (
+            <div className="space-y-10">
 
-      {/* Lineup — home side only */}
-      {match.starting.length > 0 && (
-        <section className="bg-[#faf8f4] border-t border-[#1c1817]/8 py-14">
-          <div className="mx-auto max-w-3xl px-6">
-            <h2 className="text-2xl font-semibold text-[#1c1817]" style={{ fontFamily: "'Fraunces', serif" }}>
-              Lineup
-            </h2>
+              {seasons.map((season) => (
+                <section key={season}>
 
-            <ul className="mt-6 divide-y divide-[#1c1817]/6">
-              {match.starting.map((p) => (
-                <li key={p.id} className="flex items-center gap-3 py-2.5">
-                  <span className="mono w-6 text-sm text-[#c8102e]">{p.shirt_number ?? "—"}</span>
-                  <span className="flex-1 text-[#1c1817]">{p.player?.name || p.player_name_raw}</span>
-                  <span className="mono text-xs text-[#83766c]">{p.position}</span>
-                </li>
+                  {/* YEAR */}
+                  <div className="mb-5 flex items-center gap-4">
+                    <h2
+                      className="text-4xl font-semibold"
+                      style={{ fontFamily: "'Fraunces', serif" }}
+                    >
+                      {season}
+                    </h2>
+
+                    <div className="h-px flex-1 bg-[#1c1817]/10" />
+                  </div>
+
+                  {/* TOURNAMENTS */}
+                  <div className="space-y-5">
+
+                    {Object.entries(grouped[season]).map(
+                      ([competition, competitionMatches]) => (
+                        <div
+                          key={competition}
+                          className="overflow-hidden border border-[#1c1817]/10 bg-white"
+                        >
+
+                          {/* TOURNAMENT */}
+                          <div className="border-b border-[#1c1817]/10 bg-[#f4f1eb] px-5 py-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="mono text-[10px] uppercase tracking-[0.2em] text-[#83766c]">
+                                  Tournament
+                                </p>
+
+                                <h3 className="mt-1 text-lg font-semibold">
+                                  {competition}
+                                </h3>
+                              </div>
+
+                              <span className="mono text-xs text-[#83766c]">
+                                {competitionMatches.length}{" "}
+                                {competitionMatches.length === 1
+                                  ? "match"
+                                  : "matches"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* MATCHES */}
+                          <div className="divide-y divide-[#1c1817]/8">
+
+                            {competitionMatches.map((match: any) => {
+                              const date = match.date
+                                ? new Date(
+                                    match.date
+                                  ).toLocaleDateString("en-IN", {
+                                    day: "numeric",
+                                    month: "short",
+                                  })
+                                : "";
+
+                              return (
+                                <Link
+                                  key={match.id}
+                                  href={`/matches/${match.id}`}
+                                  className="group block px-5 py-5 transition hover:bg-[#faf8f4]"
+                                >
+                                  <div className="grid grid-cols-[70px_1fr_auto] items-center gap-4">
+
+                                    {/* DATE */}
+                                    <div>
+                                      <p className="mono text-xs text-[#83766c]">
+                                        {date}
+                                      </p>
+
+                                      {match.matchday && (
+                                        <p className="mono mt-1 text-[9px] uppercase tracking-wide text-[#83766c]/70">
+                                          MD {match.matchday}
+                                        </p>
+                                      )}
+                                    </div>
+
+                                    {/* SCORE */}
+                                    <div className="space-y-2">
+
+                                      <div className="flex items-center justify-between gap-4">
+                                        <span className="font-semibold">
+                                          Langsning FC
+                                        </span>
+
+                                        <span className="mono font-semibold">
+                                          {match.home_score ?? "–"}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center justify-between gap-4">
+                                        <span className="font-semibold">
+                                          Mumbay FC
+                                        </span>
+
+                                        <span className="mono font-semibold">
+                                          {match.away_score ?? "–"}
+                                        </span>
+                                      </div>
+
+                                    </div>
+
+                                    {/* STATUS */}
+                                    <div className="text-right">
+                                      <p className="mono text-[10px] uppercase tracking-[0.15em] text-[#c8102e]">
+                                        {match.status === "finished"
+                                          ? "Full Time"
+                                          : match.status || "Scheduled"}
+                                      </p>
+
+                                      <p className="mt-2 text-lg text-[#83766c] transition group-hover:translate-x-1">
+                                        →
+                                      </p>
+                                    </div>
+
+                                  </div>
+
+                                  {/* VENUE */}
+                                  {match.venue && (
+                                    <p className="mono mt-3 pl-[86px] text-[10px] uppercase tracking-wide text-[#83766c]/70">
+                                      {match.venue}
+                                    </p>
+                                  )}
+                                </Link>
+                              );
+                            })}
+
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                  </div>
+                </section>
               ))}
-            </ul>
 
-            {match.subs.length > 0 && (
-              <>
-                <p className="mono mt-6 mb-2 text-xs uppercase tracking-wide text-[#83766c]">Substitutes</p>
-                <ul className="divide-y divide-[#1c1817]/6">
-                  {match.subs.map((p) => (
-                    <li key={p.id} className="flex items-center gap-3 py-2.5">
-                      <span className="mono w-6 text-sm text-[#c8102e]">{p.shirt_number ?? "—"}</span>
-                      <span className="flex-1 text-[#1c1817]">{p.player?.name || p.player_name_raw}</span>
-                      <span className="mono text-xs text-[#83766c]">{p.sub_minute ? `${p.sub_minute}'` : ""}</span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* Stats — only recorded metrics render */}
-      {Object.keys(match.stats).length > 0 && (
-        <section className="bg-[#faf8f4] border-t border-[#1c1817]/8 py-14">
-          <div className="mx-auto max-w-3xl px-6">
-            <h2 className="text-2xl font-semibold text-[#1c1817]" style={{ fontFamily: "'Fraunces', serif" }}>
-              Match Stats
-            </h2>
-            <div className="mt-8 max-w-md mx-auto">
-              {Object.entries(match.stats).map(([name, val]) => (
-                <StatRow
-                  key={name}
-                  label={name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                  home={val.home}
-                  away={val.away}
-                />
-              ))}
             </div>
-          </div>
-        </section>
-      )}
+          )}
+
+        </div>
+      </section>
 
       <Footer />
     </main>
