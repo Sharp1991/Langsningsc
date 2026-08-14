@@ -96,50 +96,47 @@ async function getMatch(id: string) {
   const home = getTeam(rawMatch.home_team as Team | Team[]);
   const away = getTeam(rawMatch.away_team as Team | Team[]);
 
-  const [
-    { data: events },
-    { data: lineup },
-    { data: stats },
-  ] = await Promise.all([
-    supabase
-      .from("match_events")
-      .select(
+  const [{ data: events }, { data: lineup }, { data: stats }] =
+    await Promise.all([
+      supabase
+        .from("match_events")
+        .select(
+          `
+          id,
+          minute,
+          type,
+          detail,
+          team_id,
+          player:players(name),
+          player_name_raw
         `
-        id,
-        minute,
-        type,
-        detail,
-        team_id,
-        player:players(name),
-        player_name_raw
-      `
-      )
-      .eq("match_id", id)
-      .order("id", { ascending: true }),
+        )
+        .eq("match_id", id)
+        .order("id", { ascending: true }),
 
-    supabase
-      .from("match_lineups")
-      .select(
+      supabase
+        .from("match_lineups")
+        .select(
+          `
+          id,
+          shirt_number,
+          position,
+          is_starting,
+          sub_minute,
+          player:players(name),
+          player_name_raw
         `
-        id,
-        shirt_number,
-        position,
-        is_starting,
-        sub_minute,
-        player:players(name),
-        player_name_raw
-      `
-      )
-      .eq("match_id", id)
-      .eq("team_id", home?.id ?? -1)
-      .order("is_starting", { ascending: false })
-      .order("shirt_number", { ascending: true }),
+        )
+        .eq("match_id", id)
+        .eq("team_id", home?.id ?? -1)
+        .order("is_starting", { ascending: false })
+        .order("shirt_number", { ascending: true }),
 
-    supabase
-      .from("match_stats")
-      .select("stat_name, home_value, away_value")
-      .eq("match_id", id),
-  ]);
+      supabase
+        .from("match_stats")
+        .select("stat_name, home_value, away_value")
+        .eq("match_id", id),
+    ]);
 
   const statMap: Record<string, StatValue> = {};
 
@@ -176,37 +173,71 @@ function StatRow({
 }) {
   if (home == null || away == null) return null;
 
-  const total = Number(home) + Number(away) || 1;
-  const homePct = (Number(home) / total) * 100;
+  const homeNumber = Number(home);
+  const awayNumber = Number(away);
+  const total = homeNumber + awayNumber;
+
+  const homePct =
+    total > 0 ? (homeNumber / total) * 100 : 50;
 
   return (
-    <div className="mb-5">
-      <p className="mono mb-2 text-center text-[11px] uppercase tracking-[0.15em] text-[#83766c]">
-        {label}
-      </p>
-
-      <div className="mono mb-1.5 flex justify-between text-sm">
-        <span className="font-semibold text-[#c8102e]">
+    <div className="border-b border-[#1c1817]/8 py-5 last:border-b-0">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="mono text-sm font-semibold text-[#c8102e]">
           {home}
         </span>
 
-        <span className="text-[#83766c]">
+        <span className="mono text-[10px] uppercase tracking-[0.16em] text-[#83766c]">
+          {label}
+        </span>
+
+        <span className="mono text-sm font-semibold text-[#1c1817]">
           {away}
         </span>
       </div>
 
-      <div className="flex h-1.5 overflow-hidden rounded-full bg-[#e9e4da]">
+      <div className="flex h-2 overflow-hidden rounded-full bg-[#e9e4da]">
         <div
           className="bg-[#c8102e]"
           style={{ width: `${homePct}%` }}
         />
 
         <div
-          className="bg-[#83766c]/50"
+          className="bg-[#1c1817]/20"
           style={{ width: `${100 - homePct}%` }}
         />
       </div>
     </div>
+  );
+}
+
+function EventIcon({ type }: { type: string }) {
+  if (type === "yellow_card") {
+    return (
+      <span className="h-4 w-3 rounded-sm bg-yellow-400" />
+    );
+  }
+
+  if (type === "red_card") {
+    return (
+      <span className="h-4 w-3 rounded-sm bg-red-700" />
+    );
+  }
+
+  if (type === "goal") {
+    return (
+      <span className="text-sm">⚽</span>
+    );
+  }
+
+  if (type === "substitution") {
+    return (
+      <span className="text-sm text-[#c8102e]">↕</span>
+    );
+  }
+
+  return (
+    <span className="h-2.5 w-2.5 rounded-full bg-[#c8102e]" />
   );
 }
 
@@ -243,17 +274,26 @@ export default async function MatchDetail({
     }
   }
 
+  const formattedDate = new Date(match.date).toLocaleDateString(
+    "en-IN",
+    {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }
+  );
+
   return (
-    <main className="bg-black pt-16 md:pt-20">
+    <main className="min-h-screen bg-[#faf8f4] text-[#1c1817]">
       <Navbar />
 
-      {/* Breadcrumb */}
-      <div className="bg-[#faf8f4] px-6 pt-8">
-        <nav className="mono mx-auto max-w-3xl text-xs tracking-wide text-[#83766c]">
-
+      {/* BREADCRUMB */}
+      <div className="border-b border-[#1c1817]/8 bg-white px-6 py-5">
+        <nav className="mono mx-auto max-w-5xl text-[10px] uppercase tracking-[0.15em] text-[#83766c]">
           <a
             href="/"
-            className="hover:text-[#c8102e]"
+            className="transition-colors hover:text-[#c8102e]"
           >
             Home
           </a>
@@ -264,7 +304,7 @@ export default async function MatchDetail({
 
           <a
             href="/matches"
-            className="hover:text-[#c8102e]"
+            className="transition-colors hover:text-[#c8102e]"
           >
             Match Centre
           </a>
@@ -273,335 +313,334 @@ export default async function MatchDetail({
             /
           </span>
 
-          <a
-            href={`/matches?season=${match.season}`}
-            className="hover:text-[#c8102e]"
-          >
-            {match.season}
-          </a>
-
-          <span className="mx-2 text-[#c8102e]/40">
-            /
-          </span>
-
           <span className="text-[#1c1817]">
-            {match.date}
+            {match.season}
           </span>
-
         </nav>
       </div>
 
-      {/* Scoreboard */}
-      <section className="bg-[#faf8f4] pb-14 pt-8">
-        <div className="mx-auto max-w-3xl px-6">
+      {/* HERO SCOREBOARD */}
+      <section className="border-b border-[#1c1817]/10 bg-white">
+        <div className="mx-auto max-w-5xl px-6 py-12 md:py-16">
 
-          <p className="mono text-center text-xs uppercase tracking-[0.3em] text-[#c8102e]">
-            {match.competition}
-            {match.matchday
-              ? ` · Matchday ${match.matchday}`
-              : ""}
-          </p>
+          <div className="text-center">
+            <p className="mono text-[10px] uppercase tracking-[0.3em] text-[#c8102e]">
+              {match.competition}
+              {match.matchday
+                ? ` · Matchday ${match.matchday}`
+                : ""}
+            </p>
 
-          <p className="mono mt-2 text-center text-xs text-[#83766c]">
-            {match.date}
-            {match.venue
-              ? ` — ${match.venue}`
-              : ""}
-          </p>
+            <p className="mt-3 text-sm text-[#83766c]">
+              {formattedDate}
+              {match.venue ? ` · ${match.venue}` : ""}
+            </p>
+          </div>
 
-          <div className="mt-8 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <div className="mx-auto mt-10 grid max-w-3xl grid-cols-[1fr_auto_1fr] items-center gap-5 md:gap-12">
 
-            {/* HOME */}
-            <div className="flex flex-col items-center gap-3">
-
-              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-[#1c1817]/10 bg-white font-semibold text-[#c8102e]">
+            {/* HOME TEAM */}
+            <div className="text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-[#1c1817]/10 bg-[#faf8f4] shadow-sm md:h-28 md:w-28">
 
                 {home?.crest_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={home.crest_url}
-                    alt=""
-                    className="h-full w-full object-cover"
+                    alt={home.name}
+                    className="h-full w-full object-contain p-2"
                   />
                 ) : (
-                  home?.short_name ||
-                  home?.name?.slice(0, 3).toUpperCase()
+                  <span className="font-semibold text-[#c8102e]">
+                    {home?.short_name ||
+                      home?.name?.slice(0, 3).toUpperCase()}
+                  </span>
                 )}
-
               </div>
 
-              <p className="text-center font-semibold text-[#1c1817]">
+              <h2 className="mt-4 text-lg font-semibold md:text-xl">
                 {home?.name}
-              </p>
+              </h2>
 
+              <p className="mono mt-1 text-[9px] uppercase tracking-[0.18em] text-[#c8102e]">
+                Home
+              </p>
             </div>
 
             {/* SCORE */}
-            <div className="text-center">
-
+            <div className="min-w-[130px] text-center md:min-w-[180px]">
               <div
-                className="flex items-center gap-3 text-5xl font-semibold text-[#1c1817] md:text-6xl"
+                className="flex items-center justify-center gap-3 text-5xl font-semibold md:gap-5 md:text-7xl"
                 style={{
                   fontFamily: "'Fraunces', serif",
                 }}
               >
-
                 <span>
                   {match.home_score ?? "–"}
                 </span>
 
-                <span className="text-3xl text-[#83766c]">
+                <span className="text-3xl font-normal text-[#83766c] md:text-4xl">
                   –
                 </span>
 
                 <span>
                   {match.away_score ?? "–"}
                 </span>
-
               </div>
 
-              <p className="mono mt-2 text-[11px] uppercase tracking-[0.2em] text-[#83766c]">
-                {isFinished
-                  ? "Full Time"
-                  : match.status || "Scheduled"}
-              </p>
+              <div className="mt-3">
+                <span className="mono rounded-full border border-[#1c1817]/10 px-3 py-1.5 text-[9px] uppercase tracking-[0.18em] text-[#83766c]">
+                  {isFinished
+                    ? "Full Time"
+                    : match.status || "Scheduled"}
+                </span>
+              </div>
 
               {resultLabel && (
-                <p className="mono mt-1 text-[10px] uppercase tracking-[0.15em] text-[#c8102e]">
+                <p className="mono mt-3 text-[9px] uppercase tracking-[0.18em] text-[#c8102e]">
                   {resultLabel}
                 </p>
               )}
-
             </div>
 
-            {/* AWAY */}
-            <div className="flex flex-col items-center gap-3">
-
-              <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-[#1c1817]/10 bg-white font-semibold text-[#83766c]">
+            {/* AWAY TEAM */}
+            <div className="text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-[#1c1817]/10 bg-[#faf8f4] shadow-sm md:h-28 md:w-28">
 
                 {away?.crest_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={away.crest_url}
-                    alt=""
-                    className="h-full w-full object-cover"
+                    alt={away.name}
+                    className="h-full w-full object-contain p-2"
                   />
                 ) : (
-                  away?.short_name ||
-                  away?.name?.slice(0, 3).toUpperCase()
+                  <span className="font-semibold text-[#83766c]">
+                    {away?.short_name ||
+                      away?.name?.slice(0, 3).toUpperCase()}
+                  </span>
                 )}
-
               </div>
 
-              <p className="text-center font-semibold text-[#1c1817]">
+              <h2 className="mt-4 text-lg font-semibold md:text-xl">
                 {away?.name}
+              </h2>
+
+              <p className="mono mt-1 text-[9px] uppercase tracking-[0.18em] text-[#83766c]">
+                Away
               </p>
-
             </div>
-
           </div>
         </div>
       </section>
 
-      {/* TIMELINE */}
-      {match.events.length > 0 && (
-        <section className="border-t border-[#1c1817]/8 bg-[#faf8f4] py-14">
+      {/* CONTENT */}
+      <div className="mx-auto max-w-5xl px-6">
 
-          <div className="mx-auto max-w-3xl px-6">
+        {/* TIMELINE */}
+        {match.events.length > 0 && (
+          <section className="border-b border-[#1c1817]/10 py-14 md:py-16">
 
-            <h2
-              className="text-2xl font-semibold text-[#1c1817]"
-              style={{
-                fontFamily: "'Fraunces', serif",
-              }}
-            >
-              Match Timeline
-            </h2>
-
-            <div className="relative mt-8 pl-14">
-
-              <div className="absolute bottom-1 left-6 top-1 w-px bg-[#1c1817]/10" />
-
-              {match.events.map((e) => (
-
-                <div
-                  key={e.id}
-                  className="relative pb-6 last:pb-0"
-                >
-
-                  <span className="mono absolute -left-14 top-0 w-8 text-right text-sm font-semibold text-[#c8102e]">
-                    {e.minute}'
-                  </span>
-
-                  <span
-                    className={`absolute -left-[34px] top-1 h-2 w-2 rounded-full border-2 bg-[#faf8f4] ${
-                      e.type === "yellow_card"
-                        ? "border-yellow-600"
-                        : e.type === "red_card"
-                        ? "border-red-800"
-                        : "border-[#c8102e]"
-                    }`}
-                  />
-
-                  <p className="mono mr-2 inline-block rounded border border-[#1c1817]/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[#83766c]">
-                    {e.type.replace(/_/g, " ")}
-                  </p>
-
-                  <p className="mt-1.5 font-medium text-[#1c1817]">
-                    {getPlayerName(
-                      e.player,
-                      e.player_name_raw
-                    )}
-                  </p>
-
-                  {e.detail && (
-                    <p className="text-sm text-[#83766c]">
-                      {e.detail}
-                    </p>
-                  )}
-
-                </div>
-
-              ))}
-
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* LANGSNING LINEUP */}
-      {match.starting.length > 0 && (
-        <section className="border-t border-[#1c1817]/8 bg-[#faf8f4] py-14">
-
-          <div className="mx-auto max-w-3xl px-6">
-
-            <h2
-              className="text-2xl font-semibold text-[#1c1817]"
-              style={{
-                fontFamily: "'Fraunces', serif",
-              }}
-            >
-              Lineup
-            </h2>
-
-            <p className="mono mt-2 text-xs uppercase tracking-[0.15em] text-[#c8102e]">
-              {home?.name}
-            </p>
-
-            <ul className="mt-6 divide-y divide-[#1c1817]/6">
-
-              {match.starting.map((p) => (
-
-                <li
-                  key={p.id}
-                  className="flex items-center gap-3 py-2.5"
-                >
-
-                  <span className="mono w-6 text-sm text-[#c8102e]">
-                    {p.shirt_number ?? "—"}
-                  </span>
-
-                  <span className="flex-1 text-[#1c1817]">
-                    {getPlayerName(
-                      p.player,
-                      p.player_name_raw
-                    )}
-                  </span>
-
-                  <span className="mono text-xs text-[#83766c]">
-                    {p.position || ""}
-                  </span>
-
-                </li>
-
-              ))}
-
-            </ul>
-
-            {match.subs.length > 0 && (
-              <>
-
-                <p className="mono mb-2 mt-6 text-xs uppercase tracking-wide text-[#83766c]">
-                  Substitutes
+            <div className="mx-auto max-w-3xl">
+              <div className="mb-8">
+                <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
+                  Match Report
                 </p>
 
-                <ul className="divide-y divide-[#1c1817]/6">
+                <h2
+                  className="mt-2 text-3xl font-semibold"
+                  style={{
+                    fontFamily: "'Fraunces', serif",
+                  }}
+                >
+                  Match Timeline
+                </h2>
+              </div>
 
-                  {match.subs.map((p) => (
+              <div className="relative">
 
-                    <li
-                      key={p.id}
-                      className="flex items-center gap-3 py-2.5"
+                <div className="absolute bottom-0 left-[34px] top-0 w-px bg-[#1c1817]/10" />
+
+                <div className="space-y-7">
+                  {match.events.map((e) => (
+                    <div
+                      key={e.id}
+                      className="relative grid grid-cols-[50px_34px_1fr] items-start gap-3"
                     >
 
-                      <span className="mono w-6 text-sm text-[#c8102e]">
+                      <div className="mono pt-0.5 text-right text-xs font-semibold text-[#c8102e]">
+                        {e.minute}'
+                      </div>
+
+                      <div className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full border border-[#1c1817]/10 bg-[#faf8f4]">
+                        <EventIcon type={e.type} />
+                      </div>
+
+                      <div>
+                        <p className="font-semibold">
+                          {getPlayerName(
+                            e.player,
+                            e.player_name_raw
+                          )}
+                        </p>
+
+                        <p className="mono mt-1 text-[9px] uppercase tracking-[0.15em] text-[#83766c]">
+                          {e.type.replace(/_/g, " ")}
+                        </p>
+
+                        {e.detail && (
+                          <p className="mt-1 text-sm text-[#83766c]">
+                            {e.detail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* LANGSNING LINEUP */}
+        {match.starting.length > 0 && (
+          <section className="border-b border-[#1c1817]/10 py-14 md:py-16">
+
+            <div className="mx-auto max-w-3xl">
+
+              <div className="mb-8">
+                <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
+                  Langsning FC
+                </p>
+
+                <h2
+                  className="mt-2 text-3xl font-semibold"
+                  style={{
+                    fontFamily: "'Fraunces', serif",
+                  }}
+                >
+                  Lineup
+                </h2>
+              </div>
+
+              <div className="overflow-hidden rounded-lg border border-[#1c1817]/10 bg-white">
+
+                <div className="border-b border-[#1c1817]/10 bg-[#f4f1eb] px-5 py-3">
+                  <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#83766c]">
+                    Starting XI
+                  </p>
+                </div>
+
+                <ul className="divide-y divide-[#1c1817]/8">
+                  {match.starting.map((p) => (
+                    <li
+                      key={p.id}
+                      className="flex items-center gap-4 px-5 py-3.5"
+                    >
+                      <span className="mono w-7 text-sm font-semibold text-[#c8102e]">
                         {p.shirt_number ?? "—"}
                       </span>
 
-                      <span className="flex-1 text-[#1c1817]">
+                      <span className="flex-1 font-medium">
                         {getPlayerName(
                           p.player,
                           p.player_name_raw
                         )}
                       </span>
 
-                      <span className="mono text-xs text-[#83766c]">
-                        {p.sub_minute
-                          ? `${p.sub_minute}'`
-                          : ""}
+                      <span className="mono text-[10px] uppercase tracking-wide text-[#83766c]">
+                        {p.position || ""}
                       </span>
-
                     </li>
-
                   ))}
-
                 </ul>
 
-              </>
-            )}
+                {match.subs.length > 0 && (
+                  <>
+                    <div className="border-y border-[#1c1817]/10 bg-[#f4f1eb] px-5 py-3">
+                      <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#83766c]">
+                        Substitutes
+                      </p>
+                    </div>
 
-          </div>
-        </section>
-      )}
+                    <ul className="divide-y divide-[#1c1817]/8">
+                      {match.subs.map((p) => (
+                        <li
+                          key={p.id}
+                          className="flex items-center gap-4 px-5 py-3.5"
+                        >
+                          <span className="mono w-7 text-sm text-[#c8102e]">
+                            {p.shirt_number ?? "—"}
+                          </span>
 
-      {/* MATCH STATS */}
-      {Object.keys(match.stats).length > 0 && (
-        <section className="border-t border-[#1c1817]/8 bg-[#faf8f4] py-14">
+                          <span className="flex-1 text-[#1c1817]">
+                            {getPlayerName(
+                              p.player,
+                              p.player_name_raw
+                            )}
+                          </span>
 
-          <div className="mx-auto max-w-3xl px-6">
-
-            <h2
-              className="text-2xl font-semibold text-[#1c1817]"
-              style={{
-                fontFamily: "'Fraunces', serif",
-              }}
-            >
-              Match Stats
-            </h2>
-
-            <div className="mx-auto mt-8 max-w-md">
-
-              {Object.entries(match.stats).map(
-                ([name, val]) => (
-
-                  <StatRow
-                    key={name}
-                    label={name
-                      .replace(/_/g, " ")
-                      .replace(/\b\w/g, (c) =>
-                        c.toUpperCase()
-                      )}
-                    home={val.home}
-                    away={val.away}
-                  />
-
-                )
-              )}
-
+                          <span className="mono text-[10px] text-[#83766c]">
+                            {p.sub_minute
+                              ? `${p.sub_minute}'`
+                              : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
+
+        {/* MATCH STATS */}
+        {Object.keys(match.stats).length > 0 && (
+          <section className="py-14 md:py-16">
+
+            <div className="mx-auto max-w-3xl">
+
+              <div className="mb-8">
+                <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
+                  Match Data
+                </p>
+
+                <h2
+                  className="mt-2 text-3xl font-semibold"
+                  style={{
+                    fontFamily: "'Fraunces', serif",
+                  }}
+                >
+                  Match Stats
+                </h2>
+
+                <div className="mt-3 flex justify-between text-xs text-[#83766c]">
+                  <span>{home?.short_name || home?.name}</span>
+                  <span>{away?.short_name || away?.name}</span>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-[#1c1817]/10 bg-white px-5 md:px-8">
+                {Object.entries(match.stats).map(
+                  ([name, val]) => (
+                    <StatRow
+                      key={name}
+                      label={name
+                        .replace(/_/g, " ")
+                        .replace(/\b\w/g, (c) =>
+                          c.toUpperCase()
+                        )}
+                      home={val.home}
+                      away={val.away}
+                    />
+                  )
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
 
       <Footer />
     </main>
