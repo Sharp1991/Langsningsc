@@ -14,7 +14,7 @@ async function getMatches() {
   if (error) {
     throw new Error(`Matches query failed: ${error.message}`);
   }
-
+console.log("MATCHES FROM SUPABASE:", data);
   return data || [];
 }
 
