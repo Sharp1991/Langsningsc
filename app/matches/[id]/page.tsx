@@ -128,7 +128,7 @@ async function getMatch(id: string) {
         `
         )
         .eq("match_id", id)
-        .eq("team_id", home?.id ?? -1)
+        .eq("team_id", 1)
         .order("is_starting", { ascending: false })
         .order("shirt_number", { ascending: true }),
 
