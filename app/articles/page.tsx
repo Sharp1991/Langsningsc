@@ -3,6 +3,8 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 type Article = {
   id: number;
   title: string;
@@ -19,7 +21,7 @@ export default async function ArticlesPage() {
     .select(
       "id, title, slug, excerpt, category, published_date, image_url"
     )
-    .order("published_date", { ascending: false });
+    .order("published_date", { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error("ARTICLES PAGE ERROR:", error);
