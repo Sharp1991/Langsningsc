@@ -6,9 +6,10 @@ import Link from "next/link";
 
 const links = [
   { href: "/", label: "Home" },
-  { href: "/history", label: "History" },
   { href: "/matches", label: "Matches" },
+  { href: "/articles", label: "Articles" },
   { href: "/players", label: "Players" },
+  { href: "/history", label: "History" },
   { href: "/gallery", label: "Gallery" },
 ];
 
@@ -28,10 +29,12 @@ export default function Navbar() {
             priority
             className="h-9 w-9 md:h-[50px] md:w-[50px]"
           />
+
           <div>
             <h2 className="text-sm md:text-lg font-bold text-white leading-tight">
               LANGSNING FC
             </h2>
+
             <p className="text-[10px] md:text-xs uppercase tracking-[0.3em] text-red-500">
               Fan Hub
             </p>
