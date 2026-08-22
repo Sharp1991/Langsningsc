@@ -1,5 +1,6 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import NextMatch from "@/components/NextMatch";
 import LatestStories from "@/components/LatestStories";
 import AboutClub from "@/components/AboutClub";
 import Footer from "@/components/Footer";
@@ -10,6 +11,8 @@ export default function Home() {
       <Navbar />
 
       <Hero />
+
+      <NextMatch />
 
       <LatestStories />
 
