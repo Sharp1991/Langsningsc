@@ -45,7 +45,7 @@ export default function Hero({ articles }: { articles: Article[] }) {
   const slide = slides[current];
 
   return (
-    <section className="relative overflow-hidden bg-black pt-16 md:pt-20">
+    <section className="relative overflow-hidden bg-[#c8102e] pt-16 md:pt-20">
       <div className="relative h-[45vh] min-h-[300px] max-h-[520px] w-full">
 
         {/* SLIDES */}
