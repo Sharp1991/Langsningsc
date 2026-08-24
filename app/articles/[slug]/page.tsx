@@ -13,6 +13,7 @@ type Article = {
   published_at: string | null;
   published_date: string | null;
   source: string | null;
+  match_id: number | null;
 };
 
 export default async function ArticlePage({
@@ -25,7 +26,7 @@ export default async function ArticlePage({
   const { data: article, error } = await supabase
     .from("articles")
     .select(
-      "id, title, slug, excerpt, content, image_url, category, published_at, published_date, source"
+      "id, title, slug, excerpt, content, image_url, category, published_at, published_date, source, match_id"
     )
     .eq("slug", slug)
     .single();

@@ -96,7 +96,7 @@ async function getMatch(id: string) {
   const home = getTeam(rawMatch.home_team as Team | Team[]);
   const away = getTeam(rawMatch.away_team as Team | Team[]);
 
-  const [{ data: events }, { data: lineup }, { data: stats }] =
+  const [{ data: events }, { data: lineup }, { data: stats }, { data: relatedArticles }] =
     await Promise.all([
       supabase
         .from("match_events")
@@ -136,6 +136,12 @@ async function getMatch(id: string) {
         .from("match_stats")
         .select("stat_name, home_value, away_value")
         .eq("match_id", id),
+
+      supabase
+        .from("articles")
+        .select("id, title, slug, excerpt, image_url, category, published_date, published_at, source")
+        .eq("match_id", id)
+        .order("published_date", { ascending: false }),
     ]);
 
   const statMap: Record<string, StatValue> = {};
@@ -159,6 +165,7 @@ async function getMatch(id: string) {
       (p) => !p.is_starting
     ),
     stats: statMap,
+    relatedArticles: relatedArticles || [],
   };
 }
 
@@ -637,6 +644,73 @@ export default async function MatchDetail({
                   )
                 )}
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* RELATED POSTS */}
+        {match.relatedArticles.length > 0 && (
+          <section className="border-t border-[#1c1817]/10 py-14 md:py-16">
+
+            <div className="mx-auto max-w-3xl">
+
+              <div className="mb-8">
+                <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
+                  Coverage
+                </p>
+
+                <h2
+                  className="mt-2 text-3xl font-semibold"
+                  style={{
+                    fontFamily: "'Fraunces', serif",
+                  }}
+                >
+                  Related Posts
+                </h2>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                {match.relatedArticles.map((article) => (
+                  <a
+                    key={article.id}
+                    href={`/articles/${article.slug}`}
+                    className="group overflow-hidden rounded-lg border border-[#1c1817]/10 bg-white transition hover:-translate-y-1 hover:shadow-md"
+                  >
+                    {article.image_url && (
+                      <div className="aspect-[16/9] overflow-hidden bg-[#f4f1eb]">
+                        <img
+                          src={article.image_url}
+                          alt={article.title}
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                    )}
+
+                    <div className="p-5">
+                      {article.category && (
+                        <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#c8102e]">
+                          {article.category}
+                        </p>
+                      )}
+
+                      <h3 className="mt-2 text-lg font-semibold leading-snug">
+                        {article.title}
+                      </h3>
+
+                      {article.excerpt && (
+                        <p className="mt-2 text-sm leading-relaxed text-[#83766c]">
+                          {article.excerpt}
+                        </p>
+                      )}
+
+                      <p className="mono mt-4 text-[9px] uppercase tracking-[0.15em] text-[#83766c]">
+                        Read Article →
+                      </p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+
             </div>
           </section>
         )}
