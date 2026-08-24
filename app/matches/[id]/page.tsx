@@ -2,6 +2,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/lib/supabase";
 import { notFound } from "next/navigation";
+import MatchTabs from "@/components/matches/MatchTabs";
 
 export const revalidate = 60;
 
@@ -281,6 +282,24 @@ export default async function MatchDetail({
     }
   }
 
+  const tabs = [
+    Object.keys(match.stats).length > 0
+      ? { id: "stats", label: "Match Stats" }
+      : null,
+
+    match.starting.length > 0
+      ? { id: "lineup", label: "Lineup" }
+      : null,
+
+    match.events.length > 0
+      ? { id: "events", label: "Events" }
+      : null,
+
+    match.relatedArticles.length > 0
+      ? { id: "posts", label: "Related Posts" }
+      : null,
+  ].filter(Boolean) as { id: string; label: string }[];
+
   const formattedDate = new Date(match.date).toLocaleDateString(
     "en-IN",
     {
@@ -444,275 +463,268 @@ export default async function MatchDetail({
       {/* CONTENT */}
       <div className="mx-auto max-w-5xl px-6">
 
-        {/* TIMELINE */}
-        {match.events.length > 0 && (
-          <section className="border-b border-[#1c1817]/10 py-14 md:py-16">
-
-            <div className="mx-auto max-w-3xl">
-              <div className="mb-8">
-                <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
-                  Match Report
-                </p>
-
-                <h2
-                  className="mt-2 text-3xl font-semibold"
-                  style={{
-                    fontFamily: "'Fraunces', serif",
-                  }}
-                >
-                  Match Timeline
-                </h2>
-              </div>
-
-              <div className="relative">
-
-                <div className="absolute bottom-0 left-[34px] top-0 w-px bg-[#1c1817]/10" />
-
-                <div className="space-y-7">
-                  {match.events.map((e) => (
-                    <div
-                      key={e.id}
-                      className="relative grid grid-cols-[50px_34px_1fr] items-start gap-3"
-                    >
-
-                      <div className="mono pt-0.5 text-right text-xs font-semibold text-[#c8102e]">
-                        {e.minute}'
-                      </div>
-
-                      <div className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full border border-[#1c1817]/10 bg-[#faf8f4]">
-                        <EventIcon type={e.type} />
-                      </div>
-
-                      <div>
-                        <p className="font-semibold">
-                          {getPlayerName(
-                            e.player,
-                            e.player_name_raw
-                          )}
-                        </p>
-
-                        <p className="mono mt-1 text-[9px] uppercase tracking-[0.15em] text-[#83766c]">
-                          {e.type.replace(/_/g, " ")}
-                        </p>
-
-                        {e.detail && (
-                          <p className="mt-1 text-sm text-[#83766c]">
-                            {e.detail}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* LANGSNING LINEUP */}
-        {match.starting.length > 0 && (
-          <section className="border-b border-[#1c1817]/10 py-14 md:py-16">
-
-            <div className="mx-auto max-w-3xl">
-
-              <div className="mb-8">
-                <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
-                  Langsning FC
-                </p>
-
-                <h2
-                  className="mt-2 text-3xl font-semibold"
-                  style={{
-                    fontFamily: "'Fraunces', serif",
-                  }}
-                >
-                  Lineup
-                </h2>
-              </div>
-
-              <div className="overflow-hidden rounded-lg border border-[#1c1817]/10 bg-white">
-
-                <div className="border-b border-[#1c1817]/10 bg-[#f4f1eb] px-5 py-3">
-                  <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#83766c]">
-                    Starting XI
-                  </p>
-                </div>
-
-                <ul className="divide-y divide-[#1c1817]/8">
-                  {match.starting.map((p) => (
-                    <li
-                      key={p.id}
-                      className="flex items-center gap-4 px-5 py-3.5"
-                    >
-                      <span className="mono w-7 text-sm font-semibold text-[#c8102e]">
-                        {p.shirt_number ?? "—"}
-                      </span>
-
-                      <span className="flex-1 font-medium">
-                        {getPlayerName(
-                          p.player,
-                          p.player_name_raw
-                        )}
-                      </span>
-
-                      <span className="mono text-[10px] uppercase tracking-wide text-[#83766c]">
-                        {p.position || ""}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                {match.subs.length > 0 && (
-                  <>
-                    <div className="border-y border-[#1c1817]/10 bg-[#f4f1eb] px-5 py-3">
-                      <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#83766c]">
-                        Substitutes
+        {/* MATCH TABS */}
+        {tabs.length > 0 && (
+          <MatchTabs
+            tabs={tabs}
+            children={{
+              stats: (
+                <section className="py-14 md:py-16">
+                  <div className="mx-auto max-w-3xl">
+                    <div className="mb-8">
+                      <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
+                        Match Data
                       </p>
+
+                      <h2
+                        className="mt-2 text-3xl font-semibold"
+                        style={{
+                          fontFamily: "'Fraunces', serif",
+                        }}
+                      >
+                        Match Stats
+                      </h2>
+
+                      <div className="mt-3 flex justify-between text-xs text-[#83766c]">
+                        <span>{home?.short_name || home?.name}</span>
+                        <span>{away?.short_name || away?.name}</span>
+                      </div>
                     </div>
 
-                    <ul className="divide-y divide-[#1c1817]/8">
-                      {match.subs.map((p) => (
-                        <li
-                          key={p.id}
-                          className="flex items-center gap-4 px-5 py-3.5"
+                    <div className="rounded-lg border border-[#1c1817]/10 bg-white px-5 md:px-8">
+                      {Object.entries(match.stats).map(
+                        ([name, val]) => (
+                          <StatRow
+                            key={name}
+                            label={name
+                              .replace(/_/g, " ")
+                              .replace(/\b\w/g, (c) =>
+                                c.toUpperCase()
+                              )}
+                            home={val.home}
+                            away={val.away}
+                          />
+                        )
+                      )}
+                    </div>
+                  </div>
+                </section>
+              ),
+
+              events: (
+                <section className="border-b border-[#1c1817]/10 py-14 md:py-16">
+                  <div className="mx-auto max-w-3xl">
+                    <div className="mb-8">
+                      <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
+                        Match Report
+                      </p>
+
+                      <h2
+                        className="mt-2 text-3xl font-semibold"
+                        style={{
+                          fontFamily: "'Fraunces', serif",
+                        }}
+                      >
+                        Match Timeline
+                      </h2>
+                    </div>
+
+                    <div className="relative">
+                      <div className="absolute bottom-0 left-[34px] top-0 w-px bg-[#1c1817]/10" />
+
+                      <div className="space-y-7">
+                        {match.events.map((e) => (
+                          <div
+                            key={e.id}
+                            className="relative grid grid-cols-[50px_34px_1fr] items-start gap-3"
+                          >
+                            <div className="mono pt-0.5 text-right text-xs font-semibold text-[#c8102e]">
+                              {e.minute}'
+                            </div>
+
+                            <div className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full border border-[#1c1817]/10 bg-[#faf8f4]">
+                              <EventIcon type={e.type} />
+                            </div>
+
+                            <div>
+                              <p className="font-semibold">
+                                {getPlayerName(
+                                  e.player,
+                                  e.player_name_raw
+                                )}
+                              </p>
+
+                              <p className="mono mt-1 text-[9px] uppercase tracking-[0.15em] text-[#83766c]">
+                                {e.type.replace(/_/g, " ")}
+                              </p>
+
+                              {e.detail && (
+                                <p className="mt-1 text-sm text-[#83766c]">
+                                  {e.detail}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              ),
+
+              lineup: (
+                <section className="py-14 md:py-16">
+                  <div className="mx-auto max-w-3xl">
+                    <div className="mb-8">
+                      <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
+                        Langsning FC
+                      </p>
+
+                      <h2
+                        className="mt-2 text-3xl font-semibold"
+                        style={{
+                          fontFamily: "'Fraunces', serif",
+                        }}
+                      >
+                        Lineup
+                      </h2>
+                    </div>
+
+                    <div className="overflow-hidden rounded-lg border border-[#1c1817]/10 bg-white">
+                      <div className="border-b border-[#1c1817]/10 bg-[#f4f1eb] px-5 py-3">
+                        <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#83766c]">
+                          Starting XI
+                        </p>
+                      </div>
+
+                      <ul className="divide-y divide-[#1c1817]/8">
+                        {match.starting.map((p) => (
+                          <li
+                            key={p.id}
+                            className="flex items-center gap-4 px-5 py-3.5"
+                          >
+                            <span className="mono w-7 text-sm font-semibold text-[#c8102e]">
+                              {p.shirt_number ?? "—"}
+                            </span>
+
+                            <span className="flex-1 font-medium">
+                              {getPlayerName(
+                                p.player,
+                                p.player_name_raw
+                              )}
+                            </span>
+
+                            <span className="mono text-[10px] uppercase tracking-wide text-[#83766c]">
+                              {p.position || ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {match.subs.length > 0 && (
+                        <>
+                          <div className="border-y border-[#1c1817]/10 bg-[#f4f1eb] px-5 py-3">
+                            <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#83766c]">
+                              Substitutes
+                            </p>
+                          </div>
+
+                          <ul className="divide-y divide-[#1c1817]/8">
+                            {match.subs.map((p) => (
+                              <li
+                                key={p.id}
+                                className="flex items-center gap-4 px-5 py-3.5"
+                              >
+                                <span className="mono w-7 text-sm text-[#c8102e]">
+                                  {p.shirt_number ?? "—"}
+                                </span>
+
+                                <span className="flex-1 text-[#1c1817]">
+                                  {getPlayerName(
+                                    p.player,
+                                    p.player_name_raw
+                                  )}
+                                </span>
+
+                                <span className="mono text-[10px] text-[#83766c]">
+                                  {p.sub_minute
+                                    ? `${p.sub_minute}'`
+                                    : ""}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              ),
+
+              posts: (
+                <section className="border-t border-[#1c1817]/10 py-14 md:py-16">
+                  <div className="mx-auto max-w-3xl">
+                    <div className="mb-8">
+                      <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
+                        Coverage
+                      </p>
+
+                      <h2
+                        className="mt-2 text-3xl font-semibold"
+                        style={{
+                          fontFamily: "'Fraunces', serif",
+                        }}
+                      >
+                        Related Posts
+                      </h2>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2">
+                      {match.relatedArticles.map((article) => (
+                        <a
+                          key={article.id}
+                          href={`/articles/${article.slug}`}
+                          className="group overflow-hidden rounded-lg border border-[#1c1817]/10 bg-white transition hover:-translate-y-1 hover:shadow-md"
                         >
-                          <span className="mono w-7 text-sm text-[#c8102e]">
-                            {p.shirt_number ?? "—"}
-                          </span>
+                          {article.image_url && (
+                            <div className="aspect-[16/9] overflow-hidden bg-[#f4f1eb]">
+                              <img
+                                src={article.image_url}
+                                alt={article.title}
+                                className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                              />
+                            </div>
+                          )}
 
-                          <span className="flex-1 text-[#1c1817]">
-                            {getPlayerName(
-                              p.player,
-                              p.player_name_raw
+                          <div className="p-5">
+                            {article.category && (
+                              <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#c8102e]">
+                                {article.category}
+                              </p>
                             )}
-                          </span>
 
-                          <span className="mono text-[10px] text-[#83766c]">
-                            {p.sub_minute
-                              ? `${p.sub_minute}'`
-                              : ""}
-                          </span>
-                        </li>
+                            <h3 className="mt-2 text-lg font-semibold leading-snug">
+                              {article.title}
+                            </h3>
+
+                            {article.excerpt && (
+                              <p className="mt-2 text-sm leading-relaxed text-[#83766c]">
+                                {article.excerpt}
+                              </p>
+                            )}
+
+                            <p className="mono mt-4 text-[9px] uppercase tracking-[0.15em] text-[#83766c]">
+                              Read Article →
+                            </p>
+                          </div>
+                        </a>
                       ))}
-                    </ul>
-                  </>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* MATCH STATS */}
-        {Object.keys(match.stats).length > 0 && (
-          <section className="py-14 md:py-16">
-
-            <div className="mx-auto max-w-3xl">
-
-              <div className="mb-8">
-                <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
-                  Match Data
-                </p>
-
-                <h2
-                  className="mt-2 text-3xl font-semibold"
-                  style={{
-                    fontFamily: "'Fraunces', serif",
-                  }}
-                >
-                  Match Stats
-                </h2>
-
-                <div className="mt-3 flex justify-between text-xs text-[#83766c]">
-                  <span>{home?.short_name || home?.name}</span>
-                  <span>{away?.short_name || away?.name}</span>
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-[#1c1817]/10 bg-white px-5 md:px-8">
-                {Object.entries(match.stats).map(
-                  ([name, val]) => (
-                    <StatRow
-                      key={name}
-                      label={name
-                        .replace(/_/g, " ")
-                        .replace(/\b\w/g, (c) =>
-                          c.toUpperCase()
-                        )}
-                      home={val.home}
-                      away={val.away}
-                    />
-                  )
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* RELATED POSTS */}
-        {match.relatedArticles.length > 0 && (
-          <section className="border-t border-[#1c1817]/10 py-14 md:py-16">
-
-            <div className="mx-auto max-w-3xl">
-
-              <div className="mb-8">
-                <p className="mono text-[9px] uppercase tracking-[0.25em] text-[#c8102e]">
-                  Coverage
-                </p>
-
-                <h2
-                  className="mt-2 text-3xl font-semibold"
-                  style={{
-                    fontFamily: "'Fraunces', serif",
-                  }}
-                >
-                  Related Posts
-                </h2>
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-2">
-                {match.relatedArticles.map((article) => (
-                  <a
-                    key={article.id}
-                    href={`/articles/${article.slug}`}
-                    className="group overflow-hidden rounded-lg border border-[#1c1817]/10 bg-white transition hover:-translate-y-1 hover:shadow-md"
-                  >
-                    {article.image_url && (
-                      <div className="aspect-[16/9] overflow-hidden bg-[#f4f1eb]">
-                        <img
-                          src={article.image_url}
-                          alt={article.title}
-                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                        />
-                      </div>
-                    )}
-
-                    <div className="p-5">
-                      {article.category && (
-                        <p className="mono text-[9px] uppercase tracking-[0.2em] text-[#c8102e]">
-                          {article.category}
-                        </p>
-                      )}
-
-                      <h3 className="mt-2 text-lg font-semibold leading-snug">
-                        {article.title}
-                      </h3>
-
-                      {article.excerpt && (
-                        <p className="mt-2 text-sm leading-relaxed text-[#83766c]">
-                          {article.excerpt}
-                        </p>
-                      )}
-
-                      <p className="mono mt-4 text-[9px] uppercase tracking-[0.15em] text-[#83766c]">
-                        Read Article →
-                      </p>
                     </div>
-                  </a>
-                ))}
-              </div>
-
-            </div>
-          </section>
+                  </div>
+                </section>
+              ),
+            }}
+          />
         )}
       </div>
 
