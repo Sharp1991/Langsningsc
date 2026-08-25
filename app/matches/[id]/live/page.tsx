@@ -1131,7 +1131,7 @@ export default function LiveMatchLogger() {
 
                 player_id:
                   row.player_id ||
-                  row.player.id,
+                  row.player?.[0]?.id,
 
                 team_id:
                   row.team_id,
@@ -1140,7 +1140,8 @@ export default function LiveMatchLogger() {
                   Number(row.shirt_number),
 
                 player_name:
-                  row.player.name,
+                  row.player?.[0]?.name ||
+                  "Unknown player",
 
               })
             );
