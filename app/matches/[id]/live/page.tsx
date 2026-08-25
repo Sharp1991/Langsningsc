@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -40,6 +46,54 @@ type KeyMapping = {
   team: Team;
   event: EventType;
 };
+
+type VoiceColor =
+  | "RED"
+  | "GREEN"
+  | "PINK"
+  | "BLUE"
+  | "YELLOW"
+  | "WHITE"
+  | "BLACK"
+  | "ORANGE"
+  | "PURPLE";
+
+type VoicePlayer = {
+  player_id: number;
+  team_id: number;
+  jersey_number: number;
+  player_name: string;
+};
+
+type VoiceTeam = {
+  team_id: number;
+  team_name: string;
+  color: VoiceColor;
+};
+
+type VoiceEventCandidate = {
+  team_color:
+    | VoiceColor
+    | null;
+
+  event_type:
+    | EventType
+    | null;
+
+  jersey_number:
+    | number
+    | null;
+
+  assist_jersey_number:
+    | number
+    | null;
+
+  confidence: number;
+};
+
+
+
+
 
 const DEFAULT_KEY_MAP: Record<string, KeyMapping> = {
   f: { team: "Langsning", event: "PASS_COMPLETED" },
@@ -97,6 +151,24 @@ function keyMapStorageKey(matchId: number) {
   return `langsning-key-map-${matchId}`;
 }
 
+function voiceColorStorageKey(matchId: number) {
+  return `langsning-voice-colors-${matchId}`;
+}
+
+const VOICE_COLORS: VoiceColor[] = [
+  "RED",
+  "GREEN",
+  "PINK",
+  "BLUE",
+  "YELLOW",
+  "WHITE",
+  "BLACK",
+  "ORANGE",
+  "PURPLE",
+];
+
+
+
 export default function LiveMatchLogger() {
   const params = useParams();
   const matchId = Number(params.id);
@@ -127,6 +199,1128 @@ export default function LiveMatchLogger() {
 
   const [operator, setOperator] =
     useState<"Both" | Team>("Both");
+
+  // -----------------------------------------
+  // VOICE TEAM / PLAYER MAPPING
+  // -----------------------------------------
+
+  const [voiceTeams, setVoiceTeams] =
+    useState<VoiceTeam[]>([]);
+
+  const [voicePlayers, setVoicePlayers] =
+    useState<VoicePlayer[]>([]);
+
+  const [voiceColorMap, setVoiceColorMap] =
+    useState<Record<VoiceColor, number | null>>({
+      RED: null,
+      GREEN: null,
+      PINK: null,
+      BLUE: null,
+      YELLOW: null,
+      WHITE: null,
+      BLACK: null,
+      ORANGE: null,
+      PURPLE: null,
+    });
+
+  const [mappingStatus, setMappingStatus] =
+    useState("Loading match teams...");
+
+
+
+  // -----------------------------------------
+  // VOICE LOGGER
+  // -----------------------------------------
+
+  const mediaRecorderRef =
+    useRef<MediaRecorder | null>(null);
+
+  const streamRef =
+    useRef<MediaStream | null>(null);
+
+  const audioContextRef =
+    useRef<AudioContext | null>(null);
+
+  const analyserRef =
+    useRef<AnalyserNode | null>(null);
+
+  const speechCheckRef =
+    useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const speechStartedRef =
+    useRef(false);
+
+  const speechStartTimeRef =
+    useRef(0);
+
+  const lastSpeechTimeRef =
+    useRef(0);
+
+  const segmentStoppingRef =
+    useRef(false);
+
+
+
+  const voiceChunksRef =
+    useRef<Blob[]>([]);
+
+  const [micActive, setMicActive] =
+    useState(false);
+
+  const [voiceStatus, setVoiceStatus] =
+    useState("Microphone off");
+
+  const [voiceTranscript, setVoiceTranscript] =
+    useState("");
+
+  const [voiceEventCandidate, setVoiceEventCandidate] =
+    useState<VoiceEventCandidate | null>(null);
+
+  const [voiceEventQueue, setVoiceEventQueue] =
+    useState<VoiceEventCandidate[]>([]);
+
+  const [voiceParserStatus, setVoiceParserStatus] =
+    useState("Waiting for transcript");
+
+
+
+  const [voiceProcessing, setVoiceProcessing] =
+    useState(false);
+
+  const voiceRecorderMimeTypeRef =
+    useRef<string>("");
+
+  const voiceSegmentTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+
+
+
+
+
+  // -----------------------------------------
+  // VOICE MICROPHONE
+  // -----------------------------------------
+
+
+  // -----------------------------------------
+  // TRANSCRIBE VOICE SEGMENT
+  // -----------------------------------------
+
+
+  // -----------------------------------------
+  // PARSE VOICE TRANSCRIPT
+  // -----------------------------------------
+
+  const parseVoiceTranscript =
+    useCallback(
+      async (transcript: string) => {
+
+        if (!transcript.trim()) {
+          return;
+        }
+
+        try {
+
+          setVoiceParserStatus(
+            "Parsing event..."
+          );
+
+          const response =
+            await fetch(
+              "/api/parse-event",
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+
+                body: JSON.stringify({
+                  text: transcript,
+                }),
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data?.error ||
+              "Event parsing failed"
+            );
+          }
+
+          const parsedEvents =
+            Array.isArray(data?.events)
+              ? data.events
+              : [];
+
+          const candidates:
+            VoiceEventCandidate[] =
+              parsedEvents.map((event: any) => ({
+                team_color:
+                  event?.team_color ?? null,
+
+                event_type:
+                  event?.event_type ?? null,
+
+                jersey_number:
+                  event?.jersey_number ?? null,
+
+                assist_jersey_number:
+                  event?.assist_jersey_number ?? null,
+
+                confidence:
+                  typeof event?.confidence ===
+                  "number"
+                    ? event.confidence
+                    : 0,
+              }));
+
+          setVoiceEventQueue(
+            (current) => [
+              ...current,
+              ...candidates,
+            ]
+          );
+
+          // Keep the first event in the old
+          // candidate state temporarily so the
+          // existing UI does not break.
+
+          setVoiceEventCandidate(
+            candidates[0] ?? null
+          );
+
+          setVoiceParserStatus(
+            candidates.length > 0
+              ? `${candidates.length} event${
+                  candidates.length === 1
+                    ? ""
+                    : "s"
+                } parsed`
+              : "No football event detected"
+          );
+
+          console.log(
+            "VOICE EVENT QUEUE:",
+            candidates
+          );
+
+        } catch (error) {
+
+          console.error(
+            "Voice parser error:",
+            error
+          );
+
+          setVoiceParserStatus(
+            "Event parsing failed"
+          );
+
+          setVoiceEventCandidate(
+            null
+          );
+        }
+
+      },
+      []
+    );
+
+  const transcribeVoiceSegment =
+    useCallback(
+      async (blob: Blob) => {
+
+        if (!blob.size) return;
+
+        try {
+
+          setVoiceProcessing(true);
+          setVoiceStatus(
+            "● Processing speech..."
+          );
+
+          const formData =
+            new FormData();
+
+          const extension =
+            blob.type.includes("webm")
+              ? "webm"
+              : blob.type.includes("mp4")
+              ? "mp4"
+              : "audio";
+
+          formData.append(
+            "audio",
+            blob,
+            `voice-segment.${extension}`
+          );
+
+          const response =
+            await fetch(
+              "/api/transcribe",
+              {
+                method: "POST",
+                body: formData,
+              }
+            );
+
+          const data =
+            await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data?.error ||
+              "Transcription failed"
+            );
+          }
+
+          const transcript =
+            typeof data?.text === "string"
+              ? data.text.trim()
+              : "";
+
+          if (transcript) {
+
+            setVoiceTranscript(
+              transcript
+            );
+
+            console.log(
+              "VOICE TRANSCRIPT:",
+              transcript
+            );
+
+            /*
+             * Immediately send the transcript
+             * to the football event parser.
+             *
+             * Nothing is written to Supabase here.
+             */
+
+            await parseVoiceTranscript(
+              transcript
+            );
+
+          }
+
+          setVoiceStatus(
+            micActive
+              ? "● Microphone recording"
+              : "Microphone stopped"
+          );
+
+        } catch (error) {
+
+          console.error(
+            "Voice transcription error:",
+            error
+          );
+
+          setVoiceStatus(
+            "Transcription failed"
+          );
+
+        } finally {
+
+          setVoiceProcessing(false);
+
+        }
+
+      },
+      [
+        micActive,
+        parseVoiceTranscript,
+      ]
+    );
+
+  const startVoiceRecording = useCallback(
+    async () => {
+      if (micActive) return;
+
+      try {
+        setVoiceStatus(
+          "Requesting microphone..."
+        );
+
+        const stream =
+          await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+
+        streamRef.current = stream;
+
+        /*
+         * Audio analyser is used only for speech detection.
+         * MediaRecorder creates the actual audio file.
+         */
+
+        const AudioContextClass =
+          window.AudioContext ||
+          (window as any).webkitAudioContext;
+
+        const audioContext =
+          new AudioContextClass();
+
+        const analyser =
+          audioContext.createAnalyser();
+
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.85;
+
+        const source =
+          audioContext.createMediaStreamSource(
+            stream
+          );
+
+        source.connect(analyser);
+
+        audioContextRef.current =
+          audioContext;
+
+        analyserRef.current =
+          analyser;
+
+        speechStartedRef.current =
+          false;
+
+        speechStartTimeRef.current =
+          0;
+
+        lastSpeechTimeRef.current =
+          0;
+
+        segmentStoppingRef.current =
+          false;
+
+        /*
+         * Create a recorder for one complete
+         * audio segment.
+         */
+
+        const createRecorder = () => {
+
+          if (!streamRef.current) return;
+
+          let mimeType = "";
+
+          if (
+            MediaRecorder.isTypeSupported(
+              "audio/webm;codecs=opus"
+            )
+          ) {
+            mimeType =
+              "audio/webm;codecs=opus";
+          } else if (
+            MediaRecorder.isTypeSupported(
+              "audio/webm"
+            )
+          ) {
+            mimeType =
+              "audio/webm";
+          } else if (
+            MediaRecorder.isTypeSupported(
+              "audio/mp4"
+            )
+          ) {
+            mimeType =
+              "audio/mp4";
+          }
+
+          const recorder =
+            mimeType
+              ? new MediaRecorder(
+                  streamRef.current,
+                  { mimeType }
+                )
+              : new MediaRecorder(
+                  streamRef.current
+                );
+
+          const chunks: Blob[] = [];
+
+          recorder.ondataavailable =
+            (event) => {
+
+              if (
+                event.data &&
+                event.data.size > 0
+              ) {
+                chunks.push(
+                  event.data
+                );
+              }
+            };
+
+          recorder.onstop = async () => {
+
+            /*
+             * This recorder was stopped normally.
+             * Its chunks now form a complete file.
+             */
+
+            if (!chunks.length) {
+              segmentStoppingRef.current =
+                false;
+              return;
+            }
+
+            const type =
+              recorder.mimeType ||
+              "audio/webm";
+
+            const blob =
+              new Blob(
+                chunks,
+                { type }
+              );
+
+            console.log(
+              "Complete voice segment:",
+              blob.size,
+              type
+            );
+
+            if (blob.size > 1000) {
+              await transcribeVoiceSegment(
+                blob
+              );
+            }
+
+            segmentStoppingRef.current =
+              false;
+
+            /*
+             * If the microphone is still active,
+             * immediately start a new complete recorder.
+             */
+
+            if (
+              streamRef.current &&
+              micActive
+            ) {
+              createRecorder();
+            }
+
+          };
+
+          recorder.onerror =
+            (event) => {
+
+              console.error(
+                "MediaRecorder error:",
+                event
+              );
+
+              segmentStoppingRef.current =
+                false;
+
+              setVoiceStatus(
+                "Microphone recording error"
+              );
+            };
+
+          recorder.start();
+
+          mediaRecorderRef.current =
+            recorder;
+
+          voiceRecorderMimeTypeRef.current =
+            recorder.mimeType;
+        };
+
+        createRecorder();
+
+        /*
+         * Speech detector.
+         *
+         * We don't cut at a fixed duration.
+         *
+         * Speech starts when RMS crosses the
+         * threshold and ends after a short period
+         * of silence.
+         */
+
+        const data =
+          new Uint8Array(
+            analyser.fftSize
+          );
+
+        speechCheckRef.current =
+          setInterval(() => {
+
+            if (
+              !analyserRef.current ||
+              !mediaRecorderRef.current
+            ) {
+              return;
+            }
+
+            analyserRef.current
+              .getByteTimeDomainData(data);
+
+            let sum = 0;
+
+            for (
+              let i = 0;
+              i < data.length;
+              i++
+            ) {
+              const normalized =
+                (data[i] - 128) / 128;
+
+              sum +=
+                normalized *
+                normalized;
+            }
+
+            const rms =
+              Math.sqrt(
+                sum / data.length
+              );
+
+            const now =
+              Date.now();
+
+            /*
+             * Threshold deliberately kept low
+             * for normal speech.
+             */
+
+            /*
+             * Speech detection is NOT time based.
+             *
+             * The microphone remains active for the
+             * entire match. We only end an utterance
+             * when the speaker has actually stopped.
+             *
+             * A short silence inside a sentence should
+             * not immediately cut the recording.
+             */
+
+            const SPEECH_THRESHOLD = 0.018;
+
+            /*
+             * How long the audio must remain above the
+             * speech threshold before we consider it
+             * genuine speech.
+             */
+            const MIN_SPEECH_MS = 180;
+
+            /*
+             * Silence after speech which indicates that
+             * the commentator has finished the command.
+             *
+             * This is deliberately short because football
+             * commentary is fast.
+             */
+            const END_SILENCE_MS = 500;
+
+            const speaking =
+              rms > SPEECH_THRESHOLD;
+
+            if (speaking) {
+
+              if (
+                !speechStartedRef.current
+              ) {
+                speechStartedRef.current =
+                  true;
+
+                speechStartTimeRef.current =
+                  now;
+
+                console.log(
+                  "Speech started"
+                );
+              }
+
+              /*
+               * Every detected speech frame extends
+               * the current utterance.
+               */
+              lastSpeechTimeRef.current =
+                now;
+
+            } else if (
+              speechStartedRef.current
+            ) {
+
+              const silenceDuration =
+                now -
+                lastSpeechTimeRef.current;
+
+              const speechDuration =
+                lastSpeechTimeRef.current -
+                speechStartTimeRef.current;
+
+              /*
+               * Only cut after genuine speech followed
+               * by a real pause.
+               *
+               * There is NO maximum recording duration.
+               */
+              if (
+                silenceDuration >=
+                  END_SILENCE_MS &&
+                speechDuration >=
+                  MIN_SPEECH_MS &&
+                !segmentStoppingRef.current &&
+                mediaRecorderRef.current &&
+                mediaRecorderRef.current
+                  .state !== "inactive"
+              ) {
+
+                console.log(
+                  "Natural speech boundary:",
+                  speechDuration,
+                  "ms speech +",
+                  silenceDuration,
+                  "ms silence"
+                );
+
+                segmentStoppingRef.current =
+                  true;
+
+                speechStartedRef.current =
+                  false;
+
+                mediaRecorderRef.current.stop();
+              }
+            }
+
+          }, 100);
+
+        setMicActive(true);
+
+        setVoiceStatus(
+          "● Microphone listening"
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Microphone error:",
+          error
+        );
+
+        setVoiceStatus(
+          "Microphone unavailable"
+        );
+      }
+    },
+    [
+      micActive,
+      transcribeVoiceSegment,
+    ]
+  );
+
+  const stopVoiceRecording =
+    useCallback(() => {
+
+      if (
+        speechCheckRef.current
+      ) {
+        clearInterval(
+          speechCheckRef.current
+        );
+
+        speechCheckRef.current =
+          null;
+      }
+
+      speechStartedRef.current =
+        false;
+
+      segmentStoppingRef.current =
+        false;
+
+      const recorder =
+        mediaRecorderRef.current;
+
+      if (
+        recorder &&
+        recorder.state !== "inactive"
+      ) {
+        recorder.stop();
+      }
+
+      streamRef.current
+        ?.getTracks()
+        .forEach(
+          (track) =>
+            track.stop()
+        );
+
+      streamRef.current =
+        null;
+
+      mediaRecorderRef.current =
+        null;
+
+      analyserRef.current =
+        null;
+
+      if (
+        audioContextRef.current
+      ) {
+        audioContextRef.current
+          .close()
+          .catch(() => {});
+
+        audioContextRef.current =
+          null;
+      }
+
+      setMicActive(false);
+
+      setVoiceStatus(
+        "Microphone stopped"
+      );
+
+    }, []);
+
+  useEffect(() => {
+    return () => {
+      mediaRecorderRef.current?.stop();
+
+      streamRef.current
+        ?.getTracks()
+        .forEach((track) => track.stop());
+    };
+  }, []);
+
+
+
+  // -----------------------------------------
+  // LOAD VOICE TEAM / PLAYER MAPPING
+  // -----------------------------------------
+
+  useEffect(() => {
+
+    if (!matchId) return;
+
+    async function loadVoiceMapping() {
+
+      setMappingStatus(
+        "Loading match teams..."
+      );
+
+      try {
+
+        const { data: match, error: matchError } =
+          await supabase
+            .from("matches")
+            .select(
+              "home_team_id, away_team_id"
+            )
+            .eq("id", matchId)
+            .single();
+
+        if (matchError || !match) {
+
+          console.error(
+            "Could not load match teams:",
+            matchError
+          );
+
+          setMappingStatus(
+            "Could not load match teams"
+          );
+
+          return;
+        }
+
+        const teamIds = [
+          match.home_team_id,
+          match.away_team_id,
+        ].filter(
+          (id): id is number =>
+            typeof id === "number"
+        );
+
+        if (teamIds.length === 0) {
+
+          setMappingStatus(
+            "No teams found for this match"
+          );
+
+          return;
+        }
+
+        const [
+          { data: teams, error: teamsError },
+          { data: lineup, error: lineupError },
+        ] = await Promise.all([
+
+          supabase
+            .from("teams")
+            .select("id, name")
+            .in("id", teamIds),
+
+          supabase
+            .from("match_lineups")
+            .select(
+              `
+              id,
+              team_id,
+              shirt_number,
+              player_id,
+              player:players(
+                id,
+                name
+              )
+              `
+            )
+            .eq("match_id", matchId)
+            .in("team_id", teamIds)
+            .order(
+              "shirt_number",
+              { ascending: true }
+            ),
+
+        ]);
+
+        if (teamsError) {
+
+          console.error(
+            "Could not load teams:",
+            teamsError
+          );
+
+        }
+
+        if (lineupError) {
+
+          console.error(
+            "Could not load lineup:",
+            lineupError
+          );
+
+        }
+
+        const loadedTeams: VoiceTeam[] =
+          (teams || []).map(
+            (team, index) => ({
+
+              team_id: team.id,
+
+              team_name:
+                team.name || `Team ${team.id}`,
+
+              color:
+                index === 0
+                  ? "RED"
+                  : "GREEN",
+
+            })
+          );
+
+        const loadedPlayers: VoicePlayer[] =
+          (lineup || [])
+            .filter(
+              (row) =>
+                row.team_id &&
+                row.shirt_number != null &&
+                row.player
+            )
+            .map(
+              (row) => ({
+
+                player_id:
+                  row.player_id ||
+                  row.player.id,
+
+                team_id:
+                  row.team_id,
+
+                jersey_number:
+                  Number(row.shirt_number),
+
+                player_name:
+                  row.player.name,
+
+              })
+            );
+
+        setVoiceTeams(
+          loadedTeams
+        );
+
+        setVoicePlayers(
+          loadedPlayers
+        );
+
+        /*
+         * Default:
+         *
+         * RED   = home team
+         * GREEN = away team
+         *
+         * If a mapping was already saved for this
+         * match, restore it instead.
+         */
+
+        const saved =
+          localStorage.getItem(
+            voiceColorStorageKey(matchId)
+          );
+
+        if (saved) {
+
+          try {
+
+            setVoiceColorMap(
+              JSON.parse(saved)
+            );
+
+          } catch {
+
+            console.error(
+              "Could not restore voice colors"
+            );
+
+          }
+
+        } else {
+
+          const defaultMap: Record<
+            VoiceColor,
+            number | null
+          > = {
+            RED: null,
+            GREEN: null,
+            PINK: null,
+            BLUE: null,
+            YELLOW: null,
+            WHITE: null,
+            BLACK: null,
+            ORANGE: null,
+            PURPLE: null,
+          };
+
+          if (
+            loadedTeams[0]
+          ) {
+
+            defaultMap.RED =
+              loadedTeams[0].team_id;
+
+          }
+
+          if (
+            loadedTeams[1]
+          ) {
+
+            defaultMap.GREEN =
+              loadedTeams[1].team_id;
+
+          }
+
+          setVoiceColorMap(
+            defaultMap
+          );
+
+          localStorage.setItem(
+            voiceColorStorageKey(matchId),
+            JSON.stringify(defaultMap)
+          );
+
+        }
+
+        setMappingStatus(
+          `${loadedPlayers.length} players loaded`
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Voice mapping error:",
+          error
+        );
+
+        setMappingStatus(
+          "Voice mapping failed"
+        );
+
+      }
+
+    }
+
+    loadVoiceMapping();
+
+  }, [matchId]);
+
+  // Save color mapping locally.
+
+  useEffect(() => {
+
+    if (!matchId) return;
+
+    localStorage.setItem(
+      voiceColorStorageKey(matchId),
+      JSON.stringify(voiceColorMap)
+    );
+
+  }, [
+    matchId,
+    voiceColorMap,
+  ]);
+
+  // Resolve a voice color to the actual team ID.
+
+  const resolveVoiceTeam =
+    useCallback(
+      (color: VoiceColor) => {
+
+        return (
+          voiceColorMap[color] ??
+          null
+        );
+
+      },
+      [voiceColorMap]
+    );
+
+  // Resolve team + jersey number to player.
+
+  const resolveVoicePlayer =
+    useCallback(
+      (
+        color: VoiceColor,
+        jerseyNumber: number | null
+      ) => {
+
+        if (
+          jerseyNumber == null
+        ) {
+          return null;
+        }
+
+        const teamId =
+          resolveVoiceTeam(color);
+
+        if (!teamId) {
+          return null;
+        }
+
+        return (
+          voicePlayers.find(
+            (player) =>
+              player.team_id === teamId &&
+              player.jersey_number ===
+                jerseyNumber
+          ) || null
+        );
+
+      },
+      [
+        resolveVoiceTeam,
+        voicePlayers,
+      ]
+    );
 
   // -----------------------------------------
   // ONLINE STATUS
@@ -975,6 +2169,378 @@ export default function LiveMatchLogger() {
 
           </div>
         )}
+
+
+        {/* VOICE LOGGER */}
+
+        <div className="mt-6 rounded-xl bg-white p-5 shadow">
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+
+            <div>
+              <h2 className="text-2xl font-bold">
+                🎙️ Voice Match Logger
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-600">
+                Speak naturally during the match.
+              </p>
+
+              <p className="mt-2 font-semibold">
+                {voiceStatus}
+              </p>
+            </div>
+
+            {!micActive ? (
+              <button
+                onClick={startVoiceRecording}
+                className="rounded-lg bg-red-600 px-6 py-3 font-bold text-white"
+              >
+                🎙️ START MIC
+              </button>
+            ) : (
+              <button
+                onClick={stopVoiceRecording}
+                className="rounded-lg bg-gray-800 px-6 py-3 font-bold text-white"
+              >
+                ⏹ STOP MIC
+              </button>
+            )}
+
+          </div>
+
+        </div>
+
+
+
+        {/* VOICE TEAM MAPPING */}
+
+        <div className="mt-6 rounded-xl bg-white p-5 shadow">
+
+          <div className="flex items-center justify-between gap-4">
+
+            <div>
+              <h2 className="text-xl font-bold">
+                🎙️ Voice Team Mapping
+              </h2>
+
+              <p className="mt-1 text-sm text-gray-600">
+                Say the color and jersey number during commentary.
+              </p>
+            </div>
+
+            <span className="text-sm text-gray-500">
+              {mappingStatus}
+            </span>
+
+          </div>
+
+          <div className="mt-4 grid gap-3">
+
+            {VOICE_COLORS.map((color) => {
+
+              const teamId =
+                voiceColorMap[color];
+
+              const team =
+                voiceTeams.find(
+                  (item) =>
+                    item.team_id === teamId
+                );
+
+              return (
+                <div
+                  key={color}
+                  className="flex flex-wrap items-center gap-3 rounded-lg border p-3"
+                >
+
+                  <span className="w-24 font-bold">
+                    {color}
+                  </span>
+
+                  <select
+                    value={
+                      teamId ?? ""
+                    }
+                    onChange={(event) => {
+
+                      const value =
+                        event.target.value;
+
+                      setVoiceColorMap(
+                        (current) => ({
+                          ...current,
+                          [color]:
+                            value
+                              ? Number(value)
+                              : null,
+                        })
+                      );
+
+                    }}
+                    className="rounded-lg border px-3 py-2"
+                  >
+
+                    <option value="">
+                      Not assigned
+                    </option>
+
+                    {voiceTeams.map(
+                      (voiceTeam) => (
+                        <option
+                          key={
+                            voiceTeam.team_id
+                          }
+                          value={
+                            voiceTeam.team_id
+                          }
+                        >
+                          {voiceTeam.team_name}
+                        </option>
+                      )
+                    )}
+
+                  </select>
+
+                  {team && (
+                    <span className="text-sm text-gray-600">
+                      Team ID: {team.team_id}
+                    </span>
+                  )}
+
+                </div>
+              );
+
+            })}
+
+          </div>
+
+          <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm">
+
+            <strong>Example:</strong>{" "}
+
+            Red #5 → selected RED team → jersey #5 → player ID
+
+          </div>
+
+        </div>
+
+
+        {/* VOICE TRANSCRIPT */}
+
+        <div className="mt-4 rounded-xl bg-gray-50 p-5 shadow">
+
+          <div className="flex items-center justify-between">
+
+            <h3 className="font-bold">
+              Live Voice Transcript
+            </h3>
+
+            {voiceProcessing && (
+              <span className="text-sm text-gray-500">
+                Processing...
+              </span>
+            )}
+
+          </div>
+
+          <div className="mt-3 min-h-[60px] rounded-lg bg-white p-4">
+
+            {voiceTranscript ? (
+              <p className="font-medium">
+                “{voiceTranscript}”
+              </p>
+            ) : (
+              <p className="text-sm text-gray-400">
+                Start the microphone and speak.
+              </p>
+            )}
+
+          </div>
+
+        </div>
+
+
+        {/* VOICE REVIEW QUEUE */}
+
+        <div className="mt-4 rounded-xl bg-white p-5 shadow">
+
+          <div className="flex items-center justify-between">
+
+            <h3 className="font-bold">
+              Voice Review Queue
+            </h3>
+
+            <span className="text-sm text-gray-500">
+              {voiceEventQueue.length} pending
+            </span>
+
+          </div>
+
+          {voiceEventQueue.length === 0 ? (
+
+            <p className="mt-3 text-sm text-gray-400">
+              No pending voice events.
+            </p>
+
+          ) : (
+
+            <div className="mt-4 space-y-3">
+
+              {voiceEventQueue.map(
+                (event, index) => (
+
+                  <div
+                    key={`${index}-${event.team_color}-${event.event_type}`}
+                    className="rounded-lg border p-4"
+                  >
+
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+
+                      <div>
+
+                        <div className="font-bold">
+                          {event.team_color || "Unknown"}
+                          {" — "}
+                          {event.event_type || "Unknown"}
+                        </div>
+
+                        <div className="mt-1 text-sm text-gray-600">
+
+                          Jersey:{" "}
+                          {event.jersey_number ?? "—"}
+
+                          {" • "}
+
+                          Assist:{" "}
+                          {event.assist_jersey_number ?? "—"}
+
+                          {" • "}
+
+                          Confidence:{" "}
+                          {Math.round(
+                            event.confidence * 100
+                          )}
+                          %
+
+                        </div>
+
+                      </div>
+
+                      <div className="flex gap-2">
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVoiceEventQueue(
+                              (current) =>
+                                current.filter(
+                                  (_, i) =>
+                                    i !== index
+                                )
+                            );
+                          }}
+                          className="rounded-lg bg-green-600 px-4 py-2 font-bold text-white"
+                        >
+                          APPROVE
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVoiceEventQueue(
+                              (current) =>
+                                current.filter(
+                                  (_, i) =>
+                                    i !== index
+                                )
+                            );
+                          }}
+                          className="rounded-lg bg-red-600 px-4 py-2 font-bold text-white"
+                        >
+                          REJECT
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                )
+              )}
+
+            </div>
+
+          )}
+
+        </div>
+
+
+        {/* VOICE EVENT CANDIDATE */}
+
+        <div className="mt-4 rounded-xl bg-white p-5 shadow">
+
+          <div className="flex items-center justify-between">
+
+            <h3 className="font-bold">
+              Parsed Event
+            </h3>
+
+            <span className="text-sm text-gray-500">
+              {voiceParserStatus}
+            </span>
+
+          </div>
+
+          {voiceEventCandidate ? (
+
+            <div className="mt-4 grid gap-2 text-sm">
+
+              <div>
+                <strong>Team:</strong>{" "}
+                {voiceEventCandidate.team_color ||
+                  "Unknown"}
+              </div>
+
+              <div>
+                <strong>Event:</strong>{" "}
+                {voiceEventCandidate.event_type ||
+                  "Unknown"}
+              </div>
+
+              <div>
+                <strong>Jersey:</strong>{" "}
+                {voiceEventCandidate.jersey_number ??
+                  "—"}
+              </div>
+
+              <div>
+                <strong>Assist:</strong>{" "}
+                {voiceEventCandidate.assist_jersey_number ??
+                  "—"}
+              </div>
+
+              <div>
+                <strong>Confidence:</strong>{" "}
+                {Math.round(
+                  voiceEventCandidate.confidence *
+                    100
+                )}
+                %
+              </div>
+
+            </div>
+
+          ) : (
+
+            <p className="mt-3 text-sm text-gray-400">
+              No parsed event yet.
+            </p>
+
+          )}
+
+        </div>
 
         {/* SCORE + CLOCK */}
 
