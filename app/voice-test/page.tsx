@@ -324,13 +324,21 @@ export default function VoiceTestPage() {
               message.delta || "";
 
             if (delta) {
+              // 1. Live caption — raw realtime speech.
               setLiveText(
                 (current) =>
                   current + delta
               );
 
-              // Feed the same live transcription delta
-              // directly into the event segmentation layer.
+              // 2. Transcript — continuously accumulate
+              // everything received from realtime transcription.
+              setTranscript(
+                (current) =>
+                  `${current} ${delta}`.replace(/\s+/g, " ").trim()
+              );
+
+              // 3. Event parser — process the same speech
+              // immediately without waiting for transcript completion.
               feedParserDelta(delta);
             }
 
@@ -351,13 +359,13 @@ export default function VoiceTestPage() {
               "";
 
             if (completed) {
-              setTranscript(
-                (current) =>
-                  `${current} ${completed}`.trim()
-              );
+              // Transcript is already built continuously from
+              // realtime delta events.
 
-              // Send this completed segment immediately to the parser.
-              void parseEventText(completed);
+              // Keep completed text as a parser fallback only.
+              if (!parserBufferRef.current.trim()) {
+                void parseEventText(completed);
+              }
             }
 
             setLiveText("");
