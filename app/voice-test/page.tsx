@@ -41,7 +41,6 @@ export default function VoiceTestPage() {
   const [teamColorB, setTeamColorB] = useState("GREEN");
 
   const parserBufferRef = useRef("");
-  const parserProcessedRef = useRef("");
 
 
   const [events, setEvents] = useState<
@@ -108,8 +107,14 @@ export default function VoiceTestPage() {
       buffer.slice(lastStart).trim();
 
     for (const segment of segments) {
-      if (segment !== parserProcessedRef.current) {
-        parserProcessedRef.current = segment;
+      if (segment.trim()) {
+        /*
+         * Every colour-delimited segment is a new
+         * football command.
+         *
+         * Identical commands are NOT duplicates:
+         * "RED pass RED pass" = two passes.
+         */
         void parseEventText(segment);
       }
     }
