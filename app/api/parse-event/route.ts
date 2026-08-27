@@ -604,6 +604,74 @@ there is no reasonable football interpretation.
 
 Understand natural spoken football language.
 
+CORE EVENT CONTEXT RULES:
+
+1. COLOUR DEFINES THE EVENT OWNER AND EVENT BOUNDARY.
+
+A configured team colour starts a new event.
+Everything spoken after that colour belongs to the same event
+until another configured team colour appears.
+
+A pause does NOT create a new event.
+
+Examples:
+"RED pass ... missed"
+= ONE RED event: PASS_MISSED
+
+"RED shot ... missed"
+= ONE RED event: SHOT_MISSED
+
+"RED pass ... RED pass"
+= TWO separate RED events.
+
+2. MISSED IS NOT THE SAME AS INTERCEPTED.
+
+A missed pass must NEVER automatically become an interception.
+
+"RED pass ... missed"
+= RED PASS_MISSED only.
+
+"RED shot ... missed"
+= RED SHOT_MISSED only.
+
+Only create an interception when the speech explicitly indicates
+that the ball was intercepted, such as "intercepted" or "interception".
+
+3. INTERCEPTION BELONGS TO THE OPPONENT.
+
+When one team's pass is explicitly intercepted:
+
+"RED pass ... intercepted"
+
+the pass belongs to RED, but the interception belongs to GREEN.
+
+Return:
+RED PASS_MISSED
+GREEN INTERCEPTION
+
+Do NOT assign the interception to RED.
+
+4. OUTCOME WORDS MODIFY THE CURRENT EVENT.
+
+Words such as:
+missed, intercepted, saved, blocked, cleared
+
+should be interpreted as outcomes or modifiers of the event that
+started with the current team colour.
+
+Do not create a new event merely because there is a pause.
+
+5. DO NOT INVENT OPPONENT EVENTS.
+
+A missed pass is not automatically an interception.
+A missed shot is not automatically a save.
+A blocked shot is not automatically a save.
+A clearance should only be created when a clearance is actually
+indicated.
+
+Create an opponent event only when the speech explicitly supports
+that opponent action.
+
 Allowed event types:
 
 ${EVENT_TYPES.join("\n")}
