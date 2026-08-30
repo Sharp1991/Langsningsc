@@ -225,7 +225,17 @@ export default function LiveMatchLogger() {
       return;
     }
 
-    setMatch(data as MatchInfo);
+    const matchData = data as any;
+
+    setMatch({
+      ...matchData,
+      home_team: Array.isArray(matchData.home_team)
+        ? matchData.home_team[0] ?? null
+        : matchData.home_team ?? null,
+      away_team: Array.isArray(matchData.away_team)
+        ? matchData.away_team[0] ?? null
+        : matchData.away_team ?? null,
+    } as MatchInfo);
   }, [matchId]);
 
   const loadEventTypes = useCallback(async () => {
