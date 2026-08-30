@@ -1620,7 +1620,7 @@ export default function LiveMatchLogger() {
 
           <div className="overflow-x-auto">
 
-            <table className="w-full min-w-[550px] border-collapse text-center">
+            <table className="w-full min-w-[600px] border-collapse text-center">
 
               <thead>
                 <tr className="border-b-2">
@@ -1646,6 +1646,17 @@ export default function LiveMatchLogger() {
 
               <tbody>
 
+                {/* PASSING */}
+
+                <tr className="border-b bg-gray-50">
+                  <td
+                    colSpan={3}
+                    className="p-2 text-left text-sm font-bold uppercase"
+                  >
+                    Passing
+                  </td>
+                </tr>
+
                 <tr className="border-b">
                   <td className="p-3 text-left font-semibold">
                     Pass completed
@@ -1667,6 +1678,95 @@ export default function LiveMatchLogger() {
                   </td>
                   <td className="p-3 font-bold">
                     {manualStats.away.passMissed || "—"}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Pass attempts
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(Number(manualStats.home.passCompleted) || 0) +
+                      (Number(manualStats.home.passMissed) || 0)}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(Number(manualStats.away.passCompleted) || 0) +
+                      (Number(manualStats.away.passMissed) || 0)}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Pass accuracy
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(() => {
+                      const completed =
+                        Number(manualStats.home.passCompleted) || 0;
+                      const missed =
+                        Number(manualStats.home.passMissed) || 0;
+                      const attempts = completed + missed;
+
+                      return attempts
+                        ? `${Math.round((completed / attempts) * 100)}%`
+                        : "—";
+                    })()}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(() => {
+                      const completed =
+                        Number(manualStats.away.passCompleted) || 0;
+                      const missed =
+                        Number(manualStats.away.passMissed) || 0;
+                      const attempts = completed + missed;
+
+                      return attempts
+                        ? `${Math.round((completed / attempts) * 100)}%`
+                        : "—";
+                    })()}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Completed pass share
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(() => {
+                      const home =
+                        Number(manualStats.home.passCompleted) || 0;
+                      const away =
+                        Number(manualStats.away.passCompleted) || 0;
+                      const total = home + away;
+
+                      return total
+                        ? `${Math.round((home / total) * 100)}%`
+                        : "—";
+                    })()}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(() => {
+                      const home =
+                        Number(manualStats.home.passCompleted) || 0;
+                      const away =
+                        Number(manualStats.away.passCompleted) || 0;
+                      const total = home + away;
+
+                      return total
+                        ? `${Math.round((away / total) * 100)}%`
+                        : "—";
+                    })()}
+                  </td>
+                </tr>
+
+                {/* SHOOTING */}
+
+                <tr className="border-b bg-gray-50">
+                  <td
+                    colSpan={3}
+                    className="p-2 text-left text-sm font-bold uppercase"
+                  >
+                    Shooting
                   </td>
                 </tr>
 
@@ -1710,6 +1810,70 @@ export default function LiveMatchLogger() {
 
                 <tr className="border-b">
                   <td className="p-3 text-left font-semibold">
+                    Shot accuracy
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(() => {
+                      const onTarget =
+                        Number(manualStats.home.shotsOnTarget) || 0;
+                      const missed =
+                        Number(manualStats.home.shotsMissed) || 0;
+                      const total = onTarget + missed;
+
+                      return total
+                        ? `${Math.round((onTarget / total) * 100)}%`
+                        : "—";
+                    })()}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(() => {
+                      const onTarget =
+                        Number(manualStats.away.shotsOnTarget) || 0;
+                      const missed =
+                        Number(manualStats.away.shotsMissed) || 0;
+                      const total = onTarget + missed;
+
+                      return total
+                        ? `${Math.round((onTarget / total) * 100)}%`
+                        : "—";
+                    })()}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    On-target shot %
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(() => {
+                      const onTarget =
+                        Number(manualStats.home.shotsOnTarget) || 0;
+                      const missed =
+                        Number(manualStats.home.shotsMissed) || 0;
+                      const total = onTarget + missed;
+
+                      return total
+                        ? `${Math.round((onTarget / total) * 100)}%`
+                        : "—";
+                    })()}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(() => {
+                      const onTarget =
+                        Number(manualStats.away.shotsOnTarget) || 0;
+                      const missed =
+                        Number(manualStats.away.shotsMissed) || 0;
+                      const total = onTarget + missed;
+
+                      return total
+                        ? `${Math.round((onTarget / total) * 100)}%`
+                        : "—";
+                    })()}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
                     Shots inside box
                   </td>
                   <td className="p-3 font-bold">
@@ -1734,87 +1898,197 @@ export default function LiveMatchLogger() {
 
                 <tr className="border-b">
                   <td className="p-3 text-left font-semibold">
-                    Corners
+                    Shots inside box %
                   </td>
                   <td className="p-3 font-bold">
-                    {liveCount(homeTeamId, "CORNER")}
+                    {(() => {
+                      const inside =
+                        Number(manualStats.home.shotsInsideBox) || 0;
+                      const total =
+                        (Number(manualStats.home.shotsOnTarget) || 0) +
+                        (Number(manualStats.home.shotsMissed) || 0);
+
+                      return total
+                        ? `${Math.round((inside / total) * 100)}%`
+                        : "—";
+                    })()}
                   </td>
                   <td className="p-3 font-bold">
-                    {liveCount(awayTeamId, "CORNER")}
+                    {(() => {
+                      const inside =
+                        Number(manualStats.away.shotsInsideBox) || 0;
+                      const total =
+                        (Number(manualStats.away.shotsOnTarget) || 0) +
+                        (Number(manualStats.away.shotsMissed) || 0);
+
+                      return total
+                        ? `${Math.round((inside / total) * 100)}%`
+                        : "—";
+                    })()}
                   </td>
                 </tr>
 
                 <tr className="border-b">
                   <td className="p-3 text-left font-semibold">
-                    Fouls
+                    Shots outside box %
                   </td>
                   <td className="p-3 font-bold">
-                    {liveCount(homeTeamId, "FOUL")}
+                    {(() => {
+                      const outside =
+                        Number(manualStats.home.shotsOutsideBox) || 0;
+                      const total =
+                        (Number(manualStats.home.shotsOnTarget) || 0) +
+                        (Number(manualStats.home.shotsMissed) || 0);
+
+                      return total
+                        ? `${Math.round((outside / total) * 100)}%`
+                        : "—";
+                    })()}
                   </td>
                   <td className="p-3 font-bold">
-                    {liveCount(awayTeamId, "FOUL")}
+                    {(() => {
+                      const outside =
+                        Number(manualStats.away.shotsOutsideBox) || 0;
+                      const total =
+                        (Number(manualStats.away.shotsOnTarget) || 0) +
+                        (Number(manualStats.away.shotsMissed) || 0);
+
+                      return total
+                        ? `${Math.round((outside / total) * 100)}%`
+                        : "—";
+                    })()}
                   </td>
                 </tr>
 
-                <tr className="border-b">
-                  <td className="p-3 text-left font-semibold">
-                    Yellow cards
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(homeTeamId, "YELLOW_CARD")}
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(awayTeamId, "YELLOW_CARD")}
-                  </td>
-                </tr>
+                {/* ENABLED EVENT STATISTICS */}
 
-                <tr className="border-b">
-                  <td className="p-3 text-left font-semibold">
-                    Red cards
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(homeTeamId, "RED_CARD")}
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(awayTeamId, "RED_CARD")}
-                  </td>
-                </tr>
+                {Array.from(
+                  new Map(
+                    configs
+                      .filter(
+                        (config) =>
+                          config.enabled &&
+                          config.event_type?.code &&
+                          ![
+                            "PASS_COMPLETED",
+                            "PASS_MISSED",
+                            "SHOT_ON_TARGET",
+                            "SHOT_MISSED",
+                          ].includes(config.event_type.code)
+                      )
+                      .map((config) => [
+                        config.event_type!.code,
+                        config.event_type!.name || config.label,
+                      ])
+                  ).entries()
+                ).map(([code, label]) => (
 
-                <tr className="border-b">
-                  <td className="p-3 text-left font-semibold">
-                    Clearances
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(homeTeamId, "CLEARANCE")}
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(awayTeamId, "CLEARANCE")}
-                  </td>
-                </tr>
+                  <tr
+                    key={code}
+                    className="border-b"
+                  >
 
-                <tr className="border-b">
-                  <td className="p-3 text-left font-semibold">
-                    Interceptions
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(homeTeamId, "INTERCEPTION")}
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(awayTeamId, "INTERCEPTION")}
-                  </td>
-                </tr>
+                    <td className="p-3 text-left font-semibold">
+                      {label}
+                    </td>
 
-                <tr className="border-b">
-                  <td className="p-3 text-left font-semibold">
-                    Goalkeeper saves
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(homeTeamId, "GK_SAVE")}
-                  </td>
-                  <td className="p-3 font-bold">
-                    {liveCount(awayTeamId, "GK_SAVE")}
-                  </td>
-                </tr>
+                    <td className="p-3 font-bold">
+                      {liveCount(homeTeamId, code)}
+                    </td>
+
+                    <td className="p-3 font-bold">
+                      {liveCount(awayTeamId, code)}
+                    </td>
+
+                  </tr>
+
+                ))}
+
+                {/* DERIVED EVENT STATISTICS */}
+
+                {configs.some(
+                  (config) =>
+                    config.enabled &&
+                    config.event_type?.code === "GOAL"
+                ) && (
+                  <tr className="border-b">
+                    <td className="p-3 text-left font-semibold">
+                      Goal conversion
+                    </td>
+
+                    <td className="p-3 font-bold">
+                      {(() => {
+                        const goals =
+                          liveCount(homeTeamId, "GOAL");
+                        const shots =
+                          (Number(manualStats.home.shotsOnTarget) || 0) +
+                          (Number(manualStats.home.shotsMissed) || 0);
+
+                        return shots
+                          ? `${Math.round((goals / shots) * 100)}%`
+                          : "—";
+                      })()}
+                    </td>
+
+                    <td className="p-3 font-bold">
+                      {(() => {
+                        const goals =
+                          liveCount(awayTeamId, "GOAL");
+                        const shots =
+                          (Number(manualStats.away.shotsOnTarget) || 0) +
+                          (Number(manualStats.away.shotsMissed) || 0);
+
+                        return shots
+                          ? `${Math.round((goals / shots) * 100)}%`
+                          : "—";
+                      })()}
+                    </td>
+                  </tr>
+                )}
+
+                {configs.some(
+                  (config) =>
+                    config.enabled &&
+                    config.event_type?.code === "GK_SAVE"
+                ) && (
+                  <tr className="border-b">
+                    <td className="p-3 text-left font-semibold">
+                      Save %
+                    </td>
+
+                    <td className="p-3 font-bold">
+                      {(() => {
+                        const saves =
+                          liveCount(homeTeamId, "GK_SAVE");
+                        const opponentGoals =
+                          liveCount(awayTeamId, "GOAL");
+
+                        const total =
+                          saves + opponentGoals;
+
+                        return total
+                          ? `${Math.round((saves / total) * 100)}%`
+                          : "—";
+                      })()}
+                    </td>
+
+                    <td className="p-3 font-bold">
+                      {(() => {
+                        const saves =
+                          liveCount(awayTeamId, "GK_SAVE");
+                        const opponentGoals =
+                          liveCount(homeTeamId, "GOAL");
+
+                        const total =
+                          saves + opponentGoals;
+
+                        return total
+                          ? `${Math.round((saves / total) * 100)}%`
+                          : "—";
+                      })()}
+                    </td>
+                  </tr>
+                )}
 
               </tbody>
 
