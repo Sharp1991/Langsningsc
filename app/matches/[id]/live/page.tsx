@@ -290,7 +290,19 @@ export default function LiveMatchLogger() {
       return;
     }
 
-    setConfigs((data || []) as TagConfig[]);
+    const configData = (data || []) as any[];
+
+    setConfigs(
+      configData.map((config) => ({
+        ...config,
+        event_type: Array.isArray(config.event_type)
+          ? config.event_type[0] ?? undefined
+          : config.event_type ?? undefined,
+        team: Array.isArray(config.team)
+          ? config.team[0] ?? undefined
+          : config.team ?? undefined,
+      })) as TagConfig[]
+    );
   }, [matchId]);
 
   const loadLocalEvents = useCallback(() => {
