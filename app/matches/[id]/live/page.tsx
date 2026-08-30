@@ -937,6 +937,96 @@ export default function LiveMatchLogger() {
 
   /*
    * ---------------------------------------------------------
+   * PUSH LIVE STATISTICS TO MATCH STATS
+   * ---------------------------------------------------------
+   */
+
+  async function pushToMatchStats() {
+    if (!match?.id || !match.home_team || !match.away_team) return;
+
+    const rows = [
+      ["Pass completed", Number(manualStats.home.passCompleted) || 0, Number(manualStats.away.passCompleted) || 0],
+      ["Pass missed", Number(manualStats.home.passMissed) || 0, Number(manualStats.away.passMissed) || 0],
+      ["Pass attempts",
+        (Number(manualStats.home.passCompleted) || 0) + (Number(manualStats.home.passMissed) || 0),
+        (Number(manualStats.away.passCompleted) || 0) + (Number(manualStats.away.passMissed) || 0)],
+      ["Pass accuracy",
+        (() => {
+          const c = Number(manualStats.home.passCompleted) || 0;
+          const m = Number(manualStats.home.passMissed) || 0;
+          return c + m ? Math.round((c / (c + m)) * 100) : 0;
+        })(),
+        (() => {
+          const c = Number(manualStats.away.passCompleted) || 0;
+          const m = Number(manualStats.away.passMissed) || 0;
+          return c + m ? Math.round((c / (c + m)) * 100) : 0;
+        })()],
+      ["Shots",
+        (Number(manualStats.home.shotsOnTarget) || 0) + (Number(manualStats.home.shotsMissed) || 0),
+        (Number(manualStats.away.shotsOnTarget) || 0) + (Number(manualStats.away.shotsMissed) || 0)],
+      ["Shots on target", Number(manualStats.home.shotsOnTarget) || 0, Number(manualStats.away.shotsOnTarget) || 0],
+      ["Shots missed", Number(manualStats.home.shotsMissed) || 0, Number(manualStats.away.shotsMissed) || 0],
+      ["Shots inside box", Number(manualStats.home.shotsInsideBox) || 0, Number(manualStats.away.shotsInsideBox) || 0],
+      ["Shots outside box", Number(manualStats.home.shotsOutsideBox) || 0, Number(manualStats.away.shotsOutsideBox) || 0],
+    ];
+
+    const eventCodes = Array.from(
+      new Set(
+        configs
+          .filter(
+            (config) =>
+              config.enabled &&
+              config.event_type?.code &&
+              ![
+                "PASS_COMPLETED",
+                "PASS_MISSED",
+                "SHOT_ON_TARGET",
+                "SHOT_MISSED",
+              ].includes(config.event_type.code)
+          )
+          .map((config) => config.event_type!.code)
+      )
+    );
+
+    for (const code of eventCodes) {
+      const config = configs.find(
+        (item) => item.event_type?.code === code
+      );
+
+      if (!config?.event_type?.name) continue;
+
+      rows.push([
+        config.event_type.name,
+        liveCount(homeTeamId, code),
+        liveCount(awayTeamId, code),
+      ]);
+    }
+
+    const { error } = await supabase
+      .from("match_stats")
+      .upsert(
+        rows.map(([stat_name, home_value, away_value]) => ({
+          match_id: match.id,
+          stat_name,
+          home_value,
+          away_value,
+        })),
+        {
+          onConflict: "match_id,stat_name",
+        }
+      );
+
+    if (error) {
+      console.error("PUSH MATCH STATS ERROR:", error);
+      setMessage("Could not push statistics.");
+      return;
+    }
+
+    setMessage("Match statistics pushed successfully.");
+  }
+
+  /*
+   * ---------------------------------------------------------
    * VISIBLE BUTTONS
    * ---------------------------------------------------------
    */
@@ -1424,6 +1514,13 @@ export default function LiveMatchLogger() {
             className="rounded-lg bg-blue-700 px-5 py-3 font-bold text-white"
           >
             ⚙ SETTINGS
+          </button>
+
+          <button
+            onClick={pushToMatchStats}
+            className="rounded-lg bg-purple-700 px-5 py-3 font-bold text-white"
+          >
+            📊 PUSH TO MATCH STATS
           </button>
 
         </div>
