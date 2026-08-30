@@ -823,6 +823,120 @@ export default function LiveMatchLogger() {
 
   /*
    * ---------------------------------------------------------
+   * REVIEW / EDIT / DELETE EVENTS
+   * ---------------------------------------------------------
+   */
+
+  async function editTaggedEvent(event: LocalEvent) {
+    const newTime = window.prompt(
+      "Match time (seconds):",
+      String(event.match_time)
+    );
+
+    if (newTime === null) return;
+
+    const parsedTime = Number(newTime);
+
+    if (!Number.isFinite(parsedTime) || parsedTime < 0) {
+      setMessage("Invalid match time.");
+      return;
+    }
+
+    const newEventType = window.prompt(
+      "Event type:",
+      event.event_type
+    );
+
+    if (newEventType === null) return;
+
+    const cleanEventType = newEventType.trim().toUpperCase();
+
+    if (!cleanEventType) {
+      setMessage("Event type cannot be empty.");
+      return;
+    }
+
+    const changes = {
+      match_time: Math.floor(parsedTime),
+      event_type: cleanEventType,
+    };
+
+    if (event.synced && event.id) {
+      const { error } = await supabase
+        .from("match_events_test")
+        .update(changes)
+        .eq("id", event.id);
+
+      if (error) {
+        console.error(
+          "EVENT EDIT ERROR:",
+          error
+        );
+        setMessage("Could not edit synced event.");
+        return;
+      }
+    }
+
+    setEvents((current) =>
+      current
+        .map((item) =>
+          item.local_id === event.local_id
+            ? {
+                ...item,
+                ...changes,
+              }
+            : item
+        )
+        .sort(
+          (a, b) =>
+            a.match_time - b.match_time
+        )
+    );
+
+    setMessage(
+      `${cleanEventType} event updated.`
+    );
+  }
+
+  async function deleteTaggedEvent(event: LocalEvent) {
+    const confirmed = window.confirm(
+      `Delete ${event.team} — ${event.event_type} at ${formatClock(
+        event.match_time
+      )}?`
+    );
+
+    if (!confirmed) return;
+
+    if (event.synced && event.id) {
+      const { error } = await supabase
+        .from("match_events_test")
+        .delete()
+        .eq("id", event.id);
+
+      if (error) {
+        console.error(
+          "EVENT DELETE ERROR:",
+          error
+        );
+        setMessage("Could not delete synced event.");
+        return;
+      }
+    }
+
+    setEvents((current) =>
+      current.filter(
+        (item) =>
+          item.local_id !== event.local_id
+      )
+    );
+
+    setMessage(
+      `${event.event_type} event deleted.`
+    );
+  }
+
+  /*
+   * ---------------------------------------------------------
    * VISIBLE BUTTONS
    * ---------------------------------------------------------
    */
@@ -1430,7 +1544,7 @@ export default function LiveMatchLogger() {
 
                     <div
                       key={event.local_id}
-                      className="flex items-center justify-between rounded-lg border p-3"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
                     >
 
                       <div>
@@ -1455,17 +1569,41 @@ export default function LiveMatchLogger() {
 
                       </div>
 
-                      <span
-                        className={`text-xs font-bold ${
-                          event.synced
-                            ? "text-green-600"
-                            : "text-orange-600"
-                        }`}
-                      >
-                        {event.synced
-                          ? "SYNCED"
-                          : "LOCAL"}
-                      </span>
+                      <div className="flex items-center gap-2">
+
+                        <span
+                          className={`text-xs font-bold ${
+                            event.synced
+                              ? "text-green-600"
+                              : "text-orange-600"
+                          }`}
+                        >
+                          {event.synced
+                            ? "SYNCED"
+                            : "LOCAL"}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            editTaggedEvent(event)
+                          }
+                          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700"
+                        >
+                          EDIT
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            deleteTaggedEvent(event)
+                          }
+                          className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700"
+                        >
+                          DELETE
+                        </button>
+
+                      </div>
 
                     </div>
 
