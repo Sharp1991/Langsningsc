@@ -1729,7 +1729,7 @@ export default function LiveMatchLogger() {
 
                 <tr className="border-b">
                   <td className="p-3 text-left font-semibold">
-                    Completed pass share
+                    Possession (pass based)
                   </td>
                   <td className="p-3 font-bold">
                     {(() => {
