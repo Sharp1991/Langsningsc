@@ -50,6 +50,7 @@ type LocalEvent = {
   id?: number;
   match_id: number;
   match_time: number;
+  team_id: number;
   team: string;
   event_type: string;
   created_at: string;
@@ -100,7 +101,27 @@ export default function LiveMatchLogger() {
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [configs, setConfigs] = useState<TagConfig[]>([]);
   const [events, setEvents] = useState<LocalEvent[]>([]);
-  const [stats, setStats] = useState<MatchStat[]>([]);
+  const [manualStats, setManualStats] = useState({
+    home: {
+      passCompleted: "",
+      passMissed: "",
+      shots: "",
+      shotsOnTarget: "",
+      shotsMissed: "",
+      shotsInsideBox: "",
+      shotsOutsideBox: "",
+    },
+    away: {
+      passCompleted: "",
+      passMissed: "",
+      shots: "",
+      shotsOnTarget: "",
+      shotsMissed: "",
+      shotsInsideBox: "",
+      shotsOutsideBox: "",
+    },
+  });
+
 
   const [seconds, setSeconds] = useState(0);
   const [running, setRunning] = useState(false);
@@ -262,23 +283,6 @@ export default function LiveMatchLogger() {
     setConfigs((data || []) as TagConfig[]);
   }, [matchId]);
 
-  const loadStats = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("match_stats")
-      .select(
-        "id, stat_name, home_value, away_value, locked"
-      )
-      .eq("match_id", matchId)
-      .order("id");
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setStats((data || []) as MatchStat[]);
-  }, [matchId]);
-
   const loadLocalEvents = useCallback(() => {
     try {
       const raw = localStorage.getItem(
@@ -306,6 +310,104 @@ export default function LiveMatchLogger() {
     }
   }, [matchId]);
 
+  const loadManualStats = useCallback(async () => {
+    if (!matchId) return;
+
+    const { data, error } = await supabase
+      .from("match_stat_drafts")
+      .select("team_id, stat_code, value")
+      .eq("match_id", matchId);
+
+    if (error) {
+      console.error("MANUAL STATS LOAD ERROR:", error);
+      return;
+    }
+
+    const homeId = match?.home_team?.id;
+    const awayId = match?.away_team?.id;
+
+    if (!homeId || !awayId) return;
+
+    const home: Record<string, string> = {};
+    const away: Record<string, string> = {};
+
+    for (const row of data || []) {
+      const value = String(row.value ?? "");
+
+      if (row.team_id === homeId) {
+        home[row.stat_code] = value;
+      }
+
+      if (row.team_id === awayId) {
+        away[row.stat_code] = value;
+      }
+    }
+
+    setManualStats((current) => ({
+      home: {
+        ...current.home,
+        ...home,
+      },
+      away: {
+        ...current.away,
+        ...away,
+      },
+    }));
+  }, [matchId, match]);
+
+  const saveManualStat = useCallback(
+    async (
+      teamId: number,
+      statCode: string,
+      rawValue: string
+    ) => {
+      if (!matchId) return;
+
+      const cleanValue = rawValue.trim();
+
+      if (cleanValue === "") {
+        const { error } = await supabase
+          .from("match_stat_drafts")
+          .delete()
+          .eq("match_id", matchId)
+          .eq("team_id", teamId)
+          .eq("stat_code", statCode);
+
+        if (error) {
+          console.error("MANUAL STATS DELETE ERROR:", error);
+        }
+
+        return;
+      }
+
+      const numericValue = Number(cleanValue);
+
+      if (!Number.isFinite(numericValue) || numericValue < 0) {
+        return;
+      }
+
+      const { error } = await supabase
+        .from("match_stat_drafts")
+        .upsert(
+          {
+            match_id: matchId,
+            team_id: teamId,
+            stat_code: statCode,
+            value: numericValue,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "match_id,team_id,stat_code",
+          }
+        );
+
+      if (error) {
+        console.error("MANUAL STATS SAVE ERROR:", error);
+      }
+    },
+    [matchId]
+  );
+
   /*
    * ---------------------------------------------------------
    * INITIAL LOAD
@@ -322,7 +424,6 @@ export default function LiveMatchLogger() {
         loadMatch(),
         loadEventTypes(),
         loadConfigs(),
-        loadStats(),
       ]);
 
       loadLocalEvents();
@@ -336,8 +437,17 @@ export default function LiveMatchLogger() {
     loadMatch,
     loadEventTypes,
     loadConfigs,
-    loadStats,
     loadLocalEvents,
+  ]);
+
+  useEffect(() => {
+    if (!loading && match?.home_team && match?.away_team) {
+      loadManualStats();
+    }
+  }, [
+    loading,
+    match,
+    loadManualStats,
   ]);
 
   /*
@@ -521,6 +631,7 @@ export default function LiveMatchLogger() {
       local_id: makeLocalId(),
       match_id: matchId,
       match_time: secondsRef.current,
+      team_id: team.id,
       team: team.name,
       event_type: event.code,
       created_at: new Date().toISOString(),
@@ -718,9 +829,87 @@ export default function LiveMatchLogger() {
       config.team_id === match?.away_team?.id
   );
 
-  const lockedStats = stats.filter(
-    (stat) => stat.locked
-  );
+  const liveCount = (
+    teamId: number | null | undefined,
+    eventType: string
+  ) => {
+    if (!teamId) return 0;
+
+    return events.filter(
+      (event) =>
+        event.team_id === teamId &&
+        event.event_type === eventType
+    ).length;
+  };
+
+  const homeTeamId = match?.home_team?.id;
+  const awayTeamId = match?.away_team?.id;
+
+  const liveShots = (
+    teamId: number | null | undefined
+  ) =>
+    liveCount(teamId, "SHOT_ON_TARGET") +
+    liveCount(teamId, "SHOT_MISSED");
+
+  const livePassAttempts = (
+    teamId: number | null | undefined
+  ) =>
+    liveCount(teamId, "PASS_COMPLETED") +
+    liveCount(teamId, "PASS_MISSED");
+
+  const livePassAccuracy = (
+    teamId: number | null | undefined
+  ) => {
+    const attempts = livePassAttempts(teamId);
+
+    if (!attempts) return 0;
+
+    return Math.round(
+      (liveCount(teamId, "PASS_COMPLETED") /
+        attempts) *
+        100
+    );
+  };
+
+  const liveShotAccuracy = (
+    teamId: number | null | undefined
+  ) => {
+    const total = liveShots(teamId);
+
+    if (!total) return 0;
+
+    return Math.round(
+      (liveCount(teamId, "SHOT_ON_TARGET") /
+        total) *
+        100
+    );
+  };
+
+  function addManualStat(
+    team: TeamInfo,
+    eventType: string
+  ) {
+    const localEvent: LocalEvent = {
+      local_id: makeLocalId(),
+      match_id: matchId,
+      match_time: secondsRef.current,
+      team_id: team.id,
+      team: team.name,
+      event_type: eventType,
+      created_at: new Date().toISOString(),
+      synced: false,
+    };
+
+    setEvents((current) =>
+      [...current, localEvent].sort(
+        (a, b) => a.match_time - b.match_time
+      )
+    );
+
+    setMessage(
+      `${team.name}: ${eventType.replaceAll("_", " ")}`
+    );
+  }
 
   /*
    * ---------------------------------------------------------
@@ -1264,6 +1453,374 @@ export default function LiveMatchLogger() {
 
             </div>
           )}
+
+        </div>
+
+        {/* MANUAL PASS / SHOT ENTRY */}
+
+        <div className="mb-5 rounded-xl bg-white p-5 shadow">
+
+          <h2 className="mb-2 text-2xl font-bold">
+            Manual Pass & Shot Statistics
+          </h2>
+
+          <p className="mb-5 text-sm text-gray-500">
+            Enter the numbers manually after reviewing the match.
+          </p>
+
+          <div className="grid gap-6 md:grid-cols-2">
+
+            {/* HOME */}
+
+            <div className="rounded-xl border p-4">
+
+              <h3 className="mb-4 text-lg font-bold">
+                {match?.home_team?.name || "Home"}
+              </h3>
+
+              <div className="space-y-3">
+
+                {[
+                  ["passCompleted", "Pass completed"],
+                  ["passMissed", "Pass missed"],
+                  ["shotsOnTarget", "Shots on target"],
+                  ["shotsMissed", "Shots missed"],
+                  ["shotsInsideBox", "Shots inside box"],
+                  ["shotsOutsideBox", "Shots outside box"],
+                ].map(([key, label]) => (
+
+                  <div
+                    key={key}
+                    className="flex items-center justify-between gap-4"
+                  >
+
+                    <label className="font-semibold">
+                      {label}
+                    </label>
+
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="—"
+                      value={
+                        manualStats.home[
+                          key as keyof typeof manualStats.home
+                        ]
+                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+
+                        setManualStats((current) => ({
+                          ...current,
+                          home: {
+                            ...current.home,
+                            [key]: value,
+                          },
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        if (match?.home_team) {
+                          saveManualStat(
+                            match.home_team.id,
+                            key,
+                            e.target.value
+                          );
+                        }
+                      }}
+                      className="w-24 rounded-lg border px-3 py-2 text-center font-bold"
+                    />
+
+                  </div>
+
+                ))}
+
+              </div>
+
+            </div>
+
+            {/* AWAY */}
+
+            <div className="rounded-xl border p-4">
+
+              <h3 className="mb-4 text-lg font-bold">
+                {match?.away_team?.name || "Away"}
+              </h3>
+
+              <div className="space-y-3">
+
+                {[
+                  ["passCompleted", "Pass completed"],
+                  ["passMissed", "Pass missed"],
+                  ["shotsOnTarget", "Shots on target"],
+                  ["shotsMissed", "Shots missed"],
+                  ["shotsInsideBox", "Shots inside box"],
+                  ["shotsOutsideBox", "Shots outside box"],
+                ].map(([key, label]) => (
+
+                  <div
+                    key={key}
+                    className="flex items-center justify-between gap-4"
+                  >
+
+                    <label className="font-semibold">
+                      {label}
+                    </label>
+
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="—"
+                      value={
+                        manualStats.away[
+                          key as keyof typeof manualStats.away
+                        ]
+                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+
+                        setManualStats((current) => ({
+                          ...current,
+                          away: {
+                            ...current.away,
+                            [key]: value,
+                          },
+                        }));
+                      }}
+                      onBlur={(e) => {
+                        if (match?.away_team) {
+                          saveManualStat(
+                            match.away_team.id,
+                            key,
+                            e.target.value
+                          );
+                        }
+                      }}
+                      className="w-24 rounded-lg border px-3 py-2 text-center font-bold"
+                    />
+
+                  </div>
+
+                ))}
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* LIVE STATISTICS */}
+
+        <div className="mb-5 rounded-xl bg-white p-5 shadow">
+
+          <h2 className="mb-5 text-2xl font-bold">
+            Live Statistics
+          </h2>
+
+          <div className="overflow-x-auto">
+
+            <table className="w-full min-w-[550px] border-collapse text-center">
+
+              <thead>
+                <tr className="border-b-2">
+
+                  <th className="p-3 text-left">
+                    Statistic
+                  </th>
+
+                  <th className="p-3">
+                    {match?.home_team?.short_name ||
+                      match?.home_team?.name ||
+                      "Home"}
+                  </th>
+
+                  <th className="p-3">
+                    {match?.away_team?.short_name ||
+                      match?.away_team?.name ||
+                      "Away"}
+                  </th>
+
+                </tr>
+              </thead>
+
+              <tbody>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Pass completed
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.home.passCompleted || "—"}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.away.passCompleted || "—"}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Pass missed
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.home.passMissed || "—"}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.away.passMissed || "—"}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Shots
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(Number(manualStats.home.shotsOnTarget) || 0) +
+                      (Number(manualStats.home.shotsMissed) || 0)}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {(Number(manualStats.away.shotsOnTarget) || 0) +
+                      (Number(manualStats.away.shotsMissed) || 0)}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Shots on target
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.home.shotsOnTarget || "—"}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.away.shotsOnTarget || "—"}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Shots missed
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.home.shotsMissed || "—"}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.away.shotsMissed || "—"}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Shots inside box
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.home.shotsInsideBox || "—"}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.away.shotsInsideBox || "—"}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Shots outside box
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.home.shotsOutsideBox || "—"}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {manualStats.away.shotsOutsideBox || "—"}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Corners
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(homeTeamId, "CORNER")}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(awayTeamId, "CORNER")}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Fouls
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(homeTeamId, "FOUL")}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(awayTeamId, "FOUL")}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Yellow cards
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(homeTeamId, "YELLOW_CARD")}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(awayTeamId, "YELLOW_CARD")}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Red cards
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(homeTeamId, "RED_CARD")}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(awayTeamId, "RED_CARD")}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Clearances
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(homeTeamId, "CLEARANCE")}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(awayTeamId, "CLEARANCE")}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Interceptions
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(homeTeamId, "INTERCEPTION")}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(awayTeamId, "INTERCEPTION")}
+                  </td>
+                </tr>
+
+                <tr className="border-b">
+                  <td className="p-3 text-left font-semibold">
+                    Goalkeeper saves
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(homeTeamId, "GK_SAVE")}
+                  </td>
+                  <td className="p-3 font-bold">
+                    {liveCount(awayTeamId, "GK_SAVE")}
+                  </td>
+                </tr>
+
+              </tbody>
+
+            </table>
+
+          </div>
 
         </div>
 
