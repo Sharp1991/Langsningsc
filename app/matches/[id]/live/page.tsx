@@ -45,6 +45,8 @@ type MatchEvent = {
 type KeyMapping = {
   team: Team;
   event: EventType;
+  label: string;
+  enabled: boolean;
 };
 
 type VoiceColor =
@@ -96,21 +98,91 @@ type VoiceEventCandidate = {
 
 
 const DEFAULT_KEY_MAP: Record<string, KeyMapping> = {
-  f: { team: "Langsning", event: "PASS_COMPLETED" },
-  c: { team: "Langsning", event: "PASS_MISSED" },
-  r: { team: "Langsning", event: "SHOT_ON_TARGET" },
-  e: { team: "Langsning", event: "SHOT_MISSED" },
-  d: { team: "Langsning", event: "CLEARANCE" },
-  s: { team: "Langsning", event: "INTERCEPTION" },
-  w: { team: "Langsning", event: "GK_SAVE" },
+  f: {
+    team: "Langsning",
+    event: "PASS_COMPLETED",
+    label: "Pass completed",
+    enabled: true,
+  },
+  c: {
+    team: "Langsning",
+    event: "PASS_MISSED",
+    label: "Pass missed",
+    enabled: true,
+  },
+  r: {
+    team: "Langsning",
+    event: "SHOT_ON_TARGET",
+    label: "Shot on target",
+    enabled: true,
+  },
+  e: {
+    team: "Langsning",
+    event: "SHOT_MISSED",
+    label: "Shot missed",
+    enabled: true,
+  },
+  d: {
+    team: "Langsning",
+    event: "CLEARANCE",
+    label: "Clearance",
+    enabled: true,
+  },
+  s: {
+    team: "Langsning",
+    event: "INTERCEPTION",
+    label: "Interception",
+    enabled: true,
+  },
+  w: {
+    team: "Langsning",
+    event: "GK_SAVE",
+    label: "Goalkeeper save",
+    enabled: true,
+  },
 
-  j: { team: "Opponent", event: "PASS_COMPLETED" },
-  m: { team: "Opponent", event: "PASS_MISSED" },
-  u: { team: "Opponent", event: "SHOT_ON_TARGET" },
-  i: { team: "Opponent", event: "SHOT_MISSED" },
-  k: { team: "Opponent", event: "CLEARANCE" },
-  l: { team: "Opponent", event: "INTERCEPTION" },
-  o: { team: "Opponent", event: "GK_SAVE" },
+  j: {
+    team: "Opponent",
+    event: "PASS_COMPLETED",
+    label: "Pass completed",
+    enabled: true,
+  },
+  m: {
+    team: "Opponent",
+    event: "PASS_MISSED",
+    label: "Pass missed",
+    enabled: true,
+  },
+  u: {
+    team: "Opponent",
+    event: "SHOT_ON_TARGET",
+    label: "Shot on target",
+    enabled: true,
+  },
+  i: {
+    team: "Opponent",
+    event: "SHOT_MISSED",
+    label: "Shot missed",
+    enabled: true,
+  },
+  k: {
+    team: "Opponent",
+    event: "CLEARANCE",
+    label: "Clearance",
+    enabled: true,
+  },
+  l: {
+    team: "Opponent",
+    event: "INTERCEPTION",
+    label: "Interception",
+    enabled: true,
+  },
+  o: {
+    team: "Opponent",
+    event: "GK_SAVE",
+    label: "Goalkeeper save",
+    enabled: true,
+  },
 };
 
 const EVENT_LABELS: Record<EventType, string> = {
@@ -177,6 +249,10 @@ export default function LiveMatchLogger() {
   const [seconds, setSeconds] = useState(0);
 
   const [events, setEvents] = useState<MatchEvent[]>([]);
+
+  const [availableEvents, setAvailableEvents] = useState<
+    { id: number; code: EventType; name: string }[]
+  >([]);
   const [lastEvent, setLastEvent] = useState<MatchEvent | null>(null);
 
   const [saving, setSaving] = useState(false);
@@ -199,6 +275,16 @@ export default function LiveMatchLogger() {
 
   const [operator, setOperator] =
     useState<"Both" | Team>("Both");
+
+  // -----------------------------------------
+  // MATCH TEAMS
+  // -----------------------------------------
+
+  const [teamAName, setTeamAName] =
+    useState("Team A");
+
+  const [teamBName, setTeamBName] =
+    useState("Team B");
 
   // -----------------------------------------
   // VOICE TEAM / PLAYER MAPPING
@@ -1101,6 +1187,14 @@ export default function LiveMatchLogger() {
 
         }
 
+        setTeamAName(
+          teams?.[0]?.name || "Team A"
+        );
+
+        setTeamBName(
+          teams?.[1]?.name || "Team B"
+        );
+
         const loadedTeams: VoiceTeam[] =
           (teams || []).map(
             (team, index) => ({
@@ -1372,6 +1466,38 @@ export default function LiveMatchLogger() {
       JSON.stringify(keyMap)
     );
   }, [keyMap, matchId]);
+
+  // -----------------------------------------
+  // LOAD EVENT TYPES
+  // -----------------------------------------
+
+  useEffect(() => {
+    async function loadEventTypes() {
+      const { data, error } = await supabase
+        .from("event_types")
+        .select("id, code, name")
+        .eq("active", true)
+        .order("id");
+
+      if (error) {
+        console.error(
+          "Could not load event types:",
+          error
+        );
+        return;
+      }
+
+      setAvailableEvents(
+        (data ?? []) as {
+          id: number;
+          code: EventType;
+          name: string;
+        }[]
+      );
+    }
+
+    loadEventTypes();
+  }, []);
 
   // -----------------------------------------
   // LOAD LOCAL EVENTS
@@ -1703,6 +1829,8 @@ export default function LiveMatchLogger() {
         updated[newKey] = {
           team: waitingForKey.team,
           event: waitingForKey.event,
+          label: EVENT_LABELS[waitingForKey.event],
+          enabled: true,
         };
 
         setKeyMap(updated);
@@ -2131,13 +2259,32 @@ export default function LiveMatchLogger() {
                         —
                       </span>
 
-                      <span>
-                        {
-                          EVENT_LABELS[
-                            mapping.event
-                          ]
-                        }
-                      </span>
+                      <select
+                      value={mapping.event}
+                      onChange={(e) => {
+                        const newEvent =
+                          e.target.value as EventType;
+
+                        setKeyMap((current) => ({
+                          ...current,
+                          [key]: {
+                            ...current[key],
+                            event: newEvent,
+                            label: EVENT_LABELS[newEvent],
+                          },
+                        }));
+                      }}
+                      className="rounded-md border px-2 py-1"
+                    >
+                      {availableEvents.map((event) => (
+                        <option
+                          key={event.code}
+                          value={event.code}
+                        >
+                          {event.name}
+                        </option>
+                      ))}
+                    </select>
                     </div>
 
                     <button

@@ -147,6 +147,29 @@ function parseFast(
     ]);
 
   /*
+   * Compound/contextual football phrases must go to Luna.
+   *
+   * FAST_RULE handles simple, unambiguous commands.
+   * Luna handles relationships between actions and outcomes.
+   *
+   * Examples:
+   * "red pass intercepted"
+   * "red shot saved"
+   * "red pass ... intercepted"
+   *
+   * These must not be incorrectly resolved by the simple
+   * pass/shot rules below.
+   */
+  const hasContextualOutcome =
+    /\\b(intercepted|interception|saved|save|blocked|block|cleared|clearance)\\b/i.test(
+      normalized
+    );
+
+  if (hasContextualOutcome) {
+    return null;
+  }
+
+  /*
    * Goal must be checked before generic "shot".
    */
   if (
