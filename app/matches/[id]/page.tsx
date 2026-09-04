@@ -23,7 +23,7 @@ type MatchEvent = {
   type: string;
   detail: string | null;
   team_id: number | null;
-  player: Player | Player[] | null;
+  player: (Player & { Jersey?: number | null }) | (Player & { Jersey?: number | null })[] | null;
   player_name_raw: string | null;
 };
 
@@ -33,7 +33,10 @@ type LineupPlayer = {
   position: string | null;
   is_starting: boolean;
   sub_minute: number | null;
-  player: Player | Player[] | null;
+  player:
+    | (Player & { Jersey?: number | null })
+    | (Player & { Jersey?: number | null })[]
+    | null;
   player_name_raw: string | null;
 };
 
@@ -41,6 +44,19 @@ type StatValue = {
   home: number | string | null;
   away: number | string | null;
 };
+
+function getPlayerJersey(
+  player:
+    | { Jersey?: number | null }
+    | { Jersey?: number | null }[]
+    | null
+): number | null {
+  if (Array.isArray(player)) {
+    return player[0]?.Jersey ?? null;
+  }
+
+  return player?.Jersey ?? null;
+}
 
 function getPlayerName(
   player: Player | Player[] | null,
@@ -108,7 +124,7 @@ async function getMatch(id: string) {
           type,
           detail,
           team_id,
-          player:players(name),
+          player:players(name, Jersey),
           player_name_raw
         `
         )
@@ -124,7 +140,7 @@ async function getMatch(id: string) {
           position,
           is_starting,
           sub_minute,
-          player:players(name),
+          player:players(name, Jersey),
           player_name_raw
         `
         )
@@ -604,7 +620,7 @@ export default async function MatchDetail({
                             className="flex items-center gap-4 px-5 py-3.5"
                           >
                             <span className="mono w-7 text-sm font-semibold text-[#c8102e]">
-                              {p.shirt_number ?? "—"}
+                              {getPlayerJersey(p.player) ?? "—"}
                             </span>
 
                             <span className="flex-1 font-medium">
@@ -636,7 +652,7 @@ export default async function MatchDetail({
                                 className="flex items-center gap-4 px-5 py-3.5"
                               >
                                 <span className="mono w-7 text-sm text-[#c8102e]">
-                                  {p.shirt_number ?? "—"}
+                                  {getPlayerJersey(p.player) ?? "—"}
                                 </span>
 
                                 <span className="flex-1 text-[#1c1817]">
