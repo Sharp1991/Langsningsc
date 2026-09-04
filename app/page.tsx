@@ -41,7 +41,7 @@ export default async function Home() {
 
     supabase
       .from("players")
-      .select("id,name"),
+      .select("id,name,photo_url"),
 
     supabase
       .from("teams")
@@ -141,7 +141,7 @@ export default async function Home() {
           goal.player_name_raw?.trim() ||
           "Unknown",
         goals: 1,
-        imageUrl: null,
+        imageUrl: player?.photo_url ?? null,
       });
     }
 
