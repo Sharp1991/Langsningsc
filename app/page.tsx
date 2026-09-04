@@ -46,6 +46,7 @@ export default async function Home() {
     supabase
       .from("teams")
       .select("id,name,crest_url"),
+
   ]);
 
   const safeMatches = matches || [];
@@ -61,6 +62,20 @@ export default async function Home() {
   const finishedMatchIds = new Set(
     finishedMatches.map((match) => match.id)
   );
+
+  const teamGoalsFor = finishedMatches.reduce((total, match) => {
+    if (match.home_team_id === LANGSNING_ID) {
+      return total + (match.home_score || 0);
+    }
+    return total + (match.away_score || 0);
+  }, 0);
+
+  const teamGoalsAgainst = finishedMatches.reduce((total, match) => {
+    if (match.home_team_id === LANGSNING_ID) {
+      return total + (match.away_score || 0);
+    }
+    return total + (match.home_score || 0);
+  }, 0);
 
   type Scorer = {
     playerId: number | null;
@@ -161,7 +176,6 @@ export default async function Home() {
   const overallTopScorers = calculateTopScorers();
 
   const form = finishedMatches
-    .slice(0, 5)
     .map((match) => {
       const isHome =
         match.home_team_id === LANGSNING_ID;
@@ -192,6 +206,16 @@ export default async function Home() {
       return "D";
     })
     .filter(Boolean) as string[];
+
+  const formWins = form.filter((result) => result === "W").length;
+  const formDraws = form.filter((result) => result === "D").length;
+  const formLosses = form.filter((result) => result === "L").length;
+  const formGames = form.length;
+
+  const winPercentage =
+    formGames > 0
+      ? Math.round((formWins / formGames) * 1000) / 10
+      : 0;
 
   let biggestWin: {
     score: string;
@@ -260,6 +284,10 @@ export default async function Home() {
 
   const quickInfo = {
     topScorer: {
+      teamGoalsFor: teamGoalsFor,
+      teamGoalsAgainst: teamGoalsAgainst,
+      teamCrestUrl:
+        safeTeams.find((team) => team.id === LANGSNING_ID)?.crest_url || null,
       spl: splTopScorers.map((scorer) => ({
         playerId: scorer.playerId,
         name: scorer.name,
@@ -282,7 +310,14 @@ export default async function Home() {
       })),
     },
 
-    form,
+    form: {
+      results: form,
+      games: formGames,
+      wins: formWins,
+      draws: formDraws,
+      losses: formLosses,
+      winPercentage,
+    },
 
     biggestWin: biggestWin
       ? {

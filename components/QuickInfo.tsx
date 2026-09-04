@@ -14,9 +14,19 @@ type QuickInfoData = {
     spl: Scorer[];
     durand: Scorer[];
     overall: Scorer[];
+    teamGoalsFor: number;
+    teamGoalsAgainst: number;
+    teamCrestUrl: string | null;
   };
 
-  form: string[];
+  form: {
+    results: string[];
+    games: number;
+      wins: number;
+    draws: number;
+    losses: number;
+    winPercentage: number;
+  };
 
   biggestWin: {
     score: string;
@@ -48,16 +58,23 @@ export default function QuickInfo({
   ];
 
   const [current, setCurrent] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
-    if (cards.length <= 1) return;
+    if (cards.length <= 1 || isPaused) return;
+
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    if (prefersReducedMotion) return;
 
     const timer = setInterval(() => {
       setCurrent((prev) => (prev + 1) % cards.length);
     }, 5500);
 
     return () => clearInterval(timer);
-  }, [cards.length]);
+  }, [cards.length, isPaused]);
 
   const card = cards[current];
 
@@ -73,11 +90,11 @@ export default function QuickInfo({
     if (scorers.length === 0) {
       return (
         <div className="border border-black/10 bg-black/[0.025] p-4">
-          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/40">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/55">
             {competition}
           </p>
 
-          <p className="mt-4 text-sm text-black/40">
+          <p className="mt-4 text-sm text-black/55">
             No goals recorded
           </p>
         </div>
@@ -96,7 +113,7 @@ export default function QuickInfo({
           className={
             highlight
               ? "text-[9px] font-bold uppercase tracking-[0.2em] text-[#c8102e]"
-              : "text-[9px] font-bold uppercase tracking-[0.2em] text-black/40"
+              : "text-[9px] font-bold uppercase tracking-[0.2em] text-black/55"
           }
         >
           {competition}
@@ -131,6 +148,9 @@ export default function QuickInfo({
                   {scorer.goals}{" "}
                   {scorer.goals === 1 ? "Goal" : "Goals"}
                 </p>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-black/55">
+
+                </p>
               </div>
             </div>
           ))}
@@ -140,7 +160,17 @@ export default function QuickInfo({
   }
 
   return (
-    <div className="w-full overflow-hidden border border-black/10 bg-white shadow-sm">
+    <div
+      className="w-full overflow-hidden border border-black/10 bg-white shadow-sm"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onFocus={() => setIsPaused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsPaused(false);
+        }
+      }}
+    >
       <div className="border-b border-black/10 px-5 py-4 sm:px-7">
         <div className="flex items-center justify-between">
           <div>
@@ -148,12 +178,12 @@ export default function QuickInfo({
               Club Update
             </p>
 
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/45">
+            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/65">
               {card.label} · 2026 SEASON
             </p>
           </div>
 
-          <span className="text-[10px] font-semibold tracking-widest text-black/30">
+          <span className="text-[10px] font-semibold tracking-widest text-black/50">
             {String(current + 1).padStart(2, "0")} /{" "}
             {String(cards.length).padStart(2, "0")}
           </span>
@@ -168,7 +198,7 @@ export default function QuickInfo({
                 Top Scorer
               </h2>
 
-              <p className="mt-1 text-xs text-black/45">
+              <p className="mt-1 text-xs text-black/65">
                 Langsning FC · 2026 season
               </p>
             </div>
@@ -184,11 +214,61 @@ export default function QuickInfo({
                 competition="IndianOil Durand Cup"
               />
 
-              <ScorerGroup
-                scorers={data.topScorer.overall}
-                competition="Overall"
-                highlight
-              />
+              <div>
+                <ScorerGroup
+                  scorers={data.topScorer.overall}
+                  competition="Overall · All Competitions"
+                  highlight
+                />
+
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="border border-black/10 bg-black/[0.025] p-3">
+                    <div className="flex items-center gap-2">
+                      {data.topScorer.teamCrestUrl ? (
+                        <img
+                          src={data.topScorer.teamCrestUrl}
+                          alt="Langsning FC"
+                          className="h-7 w-7 object-contain"
+                        />
+                      ) : null}
+                      <div>
+                        <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-black/55">
+                          Langsning FC
+                        </p>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-black/55">
+                          Goals For
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-2xl font-black text-black">
+                      {data.topScorer.teamGoalsFor}
+                    </p>
+                  </div>
+
+                  <div className="border border-black/10 bg-black/[0.025] p-3">
+                    <div className="flex items-center gap-2">
+                      {data.topScorer.teamCrestUrl ? (
+                        <img
+                          src={data.topScorer.teamCrestUrl}
+                          alt="Langsning FC"
+                          className="h-7 w-7 object-contain"
+                        />
+                      ) : null}
+                      <div>
+                        <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-black/55">
+                          Langsning FC
+                        </p>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-black/55">
+                          Goals Against
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-2xl font-black text-black">
+                      {data.topScorer.teamGoalsAgainst}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -200,16 +280,16 @@ export default function QuickInfo({
                 Current Form
               </h2>
 
-              <p className="mt-1 text-xs text-black/45">
-                Langsning FC · Last 5 finished matches
+              <p className="mt-1 text-xs text-black/65">
+                Langsning FC · All finished matches in 2026
               </p>
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              {data.form.map((result, index) => (
+            <div className="mt-7 flex flex-wrap gap-2.5">
+              {data.form.results.map((result, index) => (
                 <div
                   key={`${result}-${index}`}
-                  className={`flex h-14 w-14 items-center justify-center border text-lg font-black ${
+                  className={`flex h-12 w-12 items-center justify-center border text-base font-black ${
                     result === "W"
                       ? "border-green-200 bg-green-50 text-green-600"
                       : result === "D"
@@ -222,7 +302,121 @@ export default function QuickInfo({
               ))}
             </div>
 
-            <p className="mt-5 text-[10px] uppercase tracking-[0.18em] text-black/35">
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="border border-black/10 bg-black/[0.025] px-3 py-3">
+                <p className="text-lg font-black text-black">
+                  {data.form.games}
+                </p>
+                <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-black/55">
+                  Games
+                </p>
+              </div>
+
+              <div className="border border-green-200 bg-green-50 px-3 py-3">
+                <p className="text-lg font-black text-green-600">
+                  {data.form.wins}
+                </p>
+                <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-green-600/70">
+                  Wins
+                </p>
+              </div>
+
+              <div className="border border-amber-200 bg-amber-50 px-3 py-3">
+                <p className="text-lg font-black text-amber-600">
+                  {data.form.draws}
+                </p>
+                <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-amber-600/70">
+                  Draws
+                </p>
+              </div>
+
+              <div className="border border-red-200 bg-red-50 px-3 py-3">
+                <p className="text-lg font-black text-red-600">
+                  {data.form.losses}
+                </p>
+                <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.15em] text-red-600/70">
+                  Losses
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 border-t border-black/10 pt-5">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-green-600">
+                    Win
+                  </p>
+                  <p className="mt-1 text-lg font-black text-black">
+                    {data.form.games > 0
+                      ? Math.round((data.form.wins / data.form.games) * 1000) / 10
+                      : 0}%
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-amber-600">
+                    Draw
+                  </p>
+                  <p className="mt-1 text-lg font-black text-black">
+                    {data.form.games > 0
+                      ? Math.round((data.form.draws / data.form.games) * 1000) / 10
+                      : 0}%
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-red-600">
+                    Loss
+                  </p>
+                  <p className="mt-1 text-lg font-black text-black">
+                    {data.form.games > 0
+                      ? Math.round((data.form.losses / data.form.games) * 1000) / 10
+                      : 0}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-black/5">
+                <div
+                  className="h-full bg-green-500"
+                  style={{
+                    width: `${
+                      data.form.games > 0
+                        ? (data.form.wins / data.form.games) * 100
+                        : 0
+                    }%`,
+                  }}
+                />
+                <div
+                  className="h-full bg-amber-400"
+                  style={{
+                    width: `${
+                      data.form.games > 0
+                        ? (data.form.draws / data.form.games) * 100
+                        : 0
+                    }%`,
+                  }}
+                />
+                <div
+                  className="h-full bg-red-500"
+                  style={{
+                    width: `${
+                      data.form.games > 0
+                        ? (data.form.losses / data.form.games) * 100
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+
+              <div className="mt-2 flex justify-between text-[8px] font-bold uppercase tracking-[0.12em] text-black/45">
+                <span>Win</span>
+                <span>Draw</span>
+                <span>Loss</span>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[9px] uppercase tracking-[0.16em] text-black/50">
               Most recent result first
             </p>
           </div>
@@ -230,7 +424,7 @@ export default function QuickInfo({
 
         {card.id === "biggest-win" && (
           <div className="flex min-h-[180px] flex-col items-center justify-center text-center">
-            <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-black/40">
+            <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-black/55">
               Biggest Victory
             </p>
 
@@ -278,12 +472,12 @@ export default function QuickInfo({
                   {data.biggestWin.competition}
                 </p>
 
-                <p className="mt-1 text-xs text-black/40">
+                <p className="mt-1 text-xs text-black/55">
                   Biggest winning margin · 2026 season
                 </p>
               </>
             ) : (
-              <p className="mt-5 text-sm text-black/40">
+              <p className="mt-5 text-sm text-black/55">
                 No wins recorded yet.
               </p>
             )}
