@@ -3,15 +3,17 @@
 import { useEffect, useState } from "react";
 
 type Scorer = {
+  playerId: number | null;
   name: string;
   goals: number;
-} | null;
+  imageUrl: string | null;
+};
 
 type QuickInfoData = {
   topScorer: {
-    spl: Scorer;
-    durand: Scorer;
-    overall: Scorer;
+    spl: Scorer[];
+    durand: Scorer[];
+    overall: Scorer[];
   };
 
   form: string[];
@@ -19,6 +21,9 @@ type QuickInfoData = {
   biggestWin: {
     score: string;
     opponent: string;
+    competition: string;
+    langsningCrestUrl: string | null;
+    opponentCrestUrl: string | null;
   } | null;
 };
 
@@ -56,9 +61,86 @@ export default function QuickInfo({
 
   const card = cards[current];
 
+  function ScorerGroup({
+    scorers,
+    competition,
+    highlight = false,
+  }: {
+    scorers: Scorer[];
+    competition: string;
+    highlight?: boolean;
+  }) {
+    if (scorers.length === 0) {
+      return (
+        <div className="border border-black/10 bg-black/[0.025] p-4">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/40">
+            {competition}
+          </p>
+
+          <p className="mt-4 text-sm text-black/40">
+            No goals recorded
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className={
+          highlight
+            ? "border border-[#c8102e]/20 bg-[#c8102e]/[0.035] p-4"
+            : "border border-black/10 bg-black/[0.025] p-4"
+        }
+      >
+        <p
+          className={
+            highlight
+              ? "text-[9px] font-bold uppercase tracking-[0.2em] text-[#c8102e]"
+              : "text-[9px] font-bold uppercase tracking-[0.2em] text-black/40"
+          }
+        >
+          {competition}
+        </p>
+
+        <div className="mt-4 space-y-3">
+          {scorers.map((scorer) => (
+            <div
+              key={`${competition}-${scorer.playerId}-${scorer.name}`}
+              className="flex items-center gap-4"
+            >
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white">
+                {scorer.imageUrl ? (
+                  <img
+                    src={scorer.imageUrl}
+                    alt={scorer.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-black/25">
+                    IMG
+                  </span>
+                )}
+              </div>
+
+              <div className="min-w-0">
+                <p className="text-base font-bold uppercase leading-tight text-black">
+                  {scorer.name}
+                </p>
+
+                <p className="mt-1 text-xl font-black uppercase text-[#c8102e]">
+                  {scorer.goals}{" "}
+                  {scorer.goals === 1 ? "Goal" : "Goals"}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full overflow-hidden border border-black/10 bg-white shadow-sm">
-      {/* HEADER */}
       <div className="border-b border-black/10 px-5 py-4 sm:px-7">
         <div className="flex items-center justify-between">
           <div>
@@ -78,7 +160,6 @@ export default function QuickInfo({
         </div>
       </div>
 
-      {/* CONTENT */}
       <div className="min-h-[230px] px-5 py-6 sm:px-7 sm:py-7">
         {card.id === "top-scorer" && (
           <div>
@@ -93,95 +174,21 @@ export default function QuickInfo({
             </div>
 
             <div className="grid gap-3 md:grid-cols-3">
-              {/* SPL */}
-              <div className="border border-black/10 bg-black/[0.025] p-4">
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/40">
-                  Shillong Premier League
-                </p>
+              <ScorerGroup
+                scorers={data.topScorer.spl}
+                competition="Shillong Premier League"
+              />
 
-                {data.topScorer.spl ? (
-                  <div className="mt-4">
-                    <p className="text-lg font-bold text-black">
-                      {data.topScorer.spl.name}
-                    </p>
+              <ScorerGroup
+                scorers={data.topScorer.durand}
+                competition="IndianOil Durand Cup"
+              />
 
-                    <p className="mt-1 text-2xl font-black uppercase text-[#c8102e]">
-                      {data.topScorer.spl.goals}{" "}
-                      {data.topScorer.spl.goals === 1
-                        ? "Goal"
-                        : "Goals"}
-                    </p>
-
-                    <p className="mt-1 text-[10px] uppercase tracking-wider text-black/35">
-                      SPL 2026
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-4 text-sm text-black/40">
-                    No goals recorded
-                  </p>
-                )}
-              </div>
-
-              {/* DURAND CUP */}
-              <div className="border border-black/10 bg-black/[0.025] p-4">
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-black/40">
-                  IndianOil Durand Cup
-                </p>
-
-                {data.topScorer.durand ? (
-                  <div className="mt-4">
-                    <p className="text-lg font-bold text-black">
-                      {data.topScorer.durand.name}
-                    </p>
-
-                    <p className="mt-1 text-2xl font-black uppercase text-[#c8102e]">
-                      {data.topScorer.durand.goals}{" "}
-                      {data.topScorer.durand.goals === 1
-                        ? "Goal"
-                        : "Goals"}
-                    </p>
-
-                    <p className="mt-1 text-[10px] uppercase tracking-wider text-black/35">
-                      Durand Cup 2026
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-4 text-sm text-black/40">
-                    No goals recorded
-                  </p>
-                )}
-              </div>
-
-              {/* OVERALL */}
-              <div className="border border-[#c8102e]/20 bg-[#c8102e]/[0.035] p-4">
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[#c8102e]">
-                  Overall
-                </p>
-
-                {data.topScorer.overall ? (
-                  <div className="mt-4">
-                    <p className="text-lg font-bold text-black">
-                      {data.topScorer.overall.name}
-                    </p>
-
-                    <p className="mt-1 text-2xl font-black uppercase text-[#c8102e]">
-                      {data.topScorer.overall.goals}{" "}
-                      {data.topScorer.overall.goals === 1
-                        ? "Goal"
-                        : "Goals"}
-                    </p>
-
-                    <p className="mt-1 text-[10px] uppercase tracking-wider text-black/35">
-                      Overall 2026
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-4 text-sm text-black/40">
-                    No goals recorded
-                  </p>
-                )}
-              </div>
+              <ScorerGroup
+                scorers={data.topScorer.overall}
+                competition="Overall"
+                highlight
+              />
             </div>
           </div>
         )}
@@ -202,7 +209,13 @@ export default function QuickInfo({
               {data.form.map((result, index) => (
                 <div
                   key={`${result}-${index}`}
-                  className="flex h-14 w-14 items-center justify-center border border-black/10 bg-black/[0.025] text-lg font-black"
+                  className={`flex h-14 w-14 items-center justify-center border text-lg font-black ${
+                    result === "W"
+                      ? "border-green-200 bg-green-50 text-green-600"
+                      : result === "D"
+                        ? "border-amber-200 bg-amber-50 text-amber-600"
+                        : "border-red-200 bg-red-50 text-red-600"
+                  }`}
                 >
                   {result}
                 </div>
@@ -216,26 +229,57 @@ export default function QuickInfo({
         )}
 
         {card.id === "biggest-win" && (
-          <div className="flex min-h-[180px] flex-col justify-center">
+          <div className="flex min-h-[180px] flex-col items-center justify-center text-center">
             <p className="text-[9px] font-bold uppercase tracking-[0.25em] text-black/40">
               Biggest Victory
             </p>
 
             {data.biggestWin ? (
               <>
-                <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-2">
+                <div className="mt-5 flex items-center justify-center gap-5">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white">
+                    {data.biggestWin.langsningCrestUrl ? (
+                      <img
+                        src={data.biggestWin.langsningCrestUrl}
+                        alt="Langsning FC"
+                        className="h-full w-full object-contain p-1.5"
+                      />
+                    ) : (
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-black/20">
+                        LFC
+                      </span>
+                    )}
+                  </div>
+
                   <span className="text-5xl font-black tracking-tight text-[#c8102e] sm:text-6xl">
                     {data.biggestWin.score}
                   </span>
 
-                  <span className="pb-1 text-xl font-bold text-black sm:text-2xl">
-                    {data.biggestWin.opponent}
-                  </span>
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white">
+                    {data.biggestWin.opponentCrestUrl ? (
+                      <img
+                        src={data.biggestWin.opponentCrestUrl}
+                        alt={data.biggestWin.opponent}
+                        className="h-full w-full object-contain p-1.5"
+                      />
+                    ) : (
+                      <span className="text-[8px] font-bold uppercase tracking-widest text-black/20">
+                        CREST
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <p className="mt-4 text-xs text-black/45">
-                  Langsning FC · Biggest winning margin in
-                  the 2026 season
+                <p className="mt-4 text-xl font-bold text-black sm:text-2xl">
+                  Langsning FC vs {data.biggestWin.opponent}
+                </p>
+
+                <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#c8102e]">
+                  {data.biggestWin.competition}
+                </p>
+
+                <p className="mt-1 text-xs text-black/40">
+                  Biggest winning margin · 2026 season
                 </p>
               </>
             ) : (
@@ -247,7 +291,6 @@ export default function QuickInfo({
         )}
       </div>
 
-      {/* DOT NAVIGATION */}
       {cards.length > 1 && (
         <div className="flex items-center justify-center gap-2 border-t border-black/10 px-5 py-3">
           {cards.map((item, index) => (

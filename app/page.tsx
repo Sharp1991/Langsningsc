@@ -26,9 +26,8 @@ export default async function Home() {
     supabase
       .from("matches")
       .select(
-        "id,date,competition,season,home_team_id,away_team_id,home_score,away_score"
+        "id,date,competition,season,home_team_id,away_team_id,home_score,away_score,status"
       )
-      .eq("status", "finished")
       .eq("season", "2026")
       .or(
         `home_team_id.eq.${LANGSNING_ID},away_team_id.eq.${LANGSNING_ID}`
@@ -37,9 +36,8 @@ export default async function Home() {
 
     supabase
       .from("match_events")
-      .select("match_id,player_id,player_name_raw")
-      .eq("team_id", LANGSNING_ID)
-      .eq("type", "GOAL"),
+      .select("match_id,player_id,player_name_raw,type")
+      .eq("team_id", LANGSNING_ID),
 
     supabase
       .from("players")
@@ -47,7 +45,7 @@ export default async function Home() {
 
     supabase
       .from("teams")
-      .select("id,name"),
+      .select("id,name,crest_url"),
   ]);
 
   const safeMatches = matches || [];
@@ -55,27 +53,35 @@ export default async function Home() {
   const safePlayers = players || [];
   const safeTeams = teams || [];
 
-  const finishedMatchIds = new Set(
-    safeMatches.map((match) => match.id)
+  const finishedMatches = safeMatches.filter(
+    (match) =>
+      match.status === "finished"
   );
 
-  // --------------------------------------------------
-  // TOP SCORER
-  // --------------------------------------------------
+  const finishedMatchIds = new Set(
+    finishedMatches.map((match) => match.id)
+  );
 
   type Scorer = {
     playerId: number | null;
     name: string;
     goals: number;
+    imageUrl: string | null;
   };
 
-  function calculateTopScorer(
+  function calculateTopScorers(
     competition?: string
-  ): Scorer | null {
+  ): Scorer[] {
     const counts = new Map<string, Scorer>();
 
     for (const goal of safeGoals) {
-      // Only count goals from finished 2026 matches
+      if (
+        !goal.type ||
+        goal.type.toLowerCase() !== "goal"
+      ) {
+        continue;
+      }
+
       if (!finishedMatchIds.has(goal.match_id)) {
         continue;
       }
@@ -86,7 +92,6 @@ export default async function Home() {
 
       if (!match) continue;
 
-      // Competition-specific calculation
       if (
         competition &&
         match.competition !== competition
@@ -98,8 +103,10 @@ export default async function Home() {
         goal.player_id !== null
           ? `player-${goal.player_id}`
           : `name-${(
-              goal.player_name_raw || "Unknown"
-            ).toLowerCase()}`;
+              goal.player_name_raw || "unknown"
+            )
+              .trim()
+              .toLowerCase()}`;
 
       const existing = counts.get(key);
 
@@ -115,35 +122,45 @@ export default async function Home() {
       counts.set(key, {
         playerId: goal.player_id,
         name:
-          player?.name ||
-          goal.player_name_raw ||
+          player?.name?.trim() ||
+          goal.player_name_raw?.trim() ||
           "Unknown",
         goals: 1,
+        imageUrl: null,
       });
     }
 
-    return (
-      Array.from(counts.values()).sort(
-        (a, b) => b.goals - a.goals
-      )[0] || null
+    const scorers = Array.from(counts.values());
+
+    if (scorers.length === 0) {
+      return [];
+    }
+
+    const highestGoals = Math.max(
+      ...scorers.map((scorer) => scorer.goals)
     );
+
+    return scorers
+      .filter(
+        (scorer) =>
+          scorer.goals === highestGoals
+      )
+      .sort((a, b) =>
+        a.name.localeCompare(b.name)
+      );
   }
 
-  const splTopScorer = calculateTopScorer(
+  const splTopScorers = calculateTopScorers(
     "Shillong Premier League"
   );
 
-  const durandTopScorer = calculateTopScorer(
+  const durandTopScorers = calculateTopScorers(
     "IndianOil Durand Cup"
   );
 
-  const overallTopScorer = calculateTopScorer();
+  const overallTopScorers = calculateTopScorers();
 
-  // --------------------------------------------------
-  // CURRENT FORM
-  // --------------------------------------------------
-
-  const form = safeMatches
+  const form = finishedMatches
     .slice(0, 5)
     .map((match) => {
       const isHome =
@@ -164,24 +181,28 @@ export default async function Home() {
         return null;
       }
 
-      if (langsningScore > opponentScore) return "W";
-      if (langsningScore < opponentScore) return "L";
+      if (langsningScore > opponentScore) {
+        return "W";
+      }
+
+      if (langsningScore < opponentScore) {
+        return "L";
+      }
 
       return "D";
     })
     .filter(Boolean) as string[];
 
-  // --------------------------------------------------
-  // BIGGEST WIN
-  // --------------------------------------------------
-
   let biggestWin: {
     score: string;
     opponent: string;
+    competition: string;
+    langsningCrestUrl: string | null;
+    opponentCrestUrl: string | null;
     goalDifference: number;
   } | null = null;
 
-  for (const match of safeMatches) {
+  for (const match of finishedMatches) {
     const isHome =
       match.home_team_id === LANGSNING_ID;
 
@@ -206,51 +227,59 @@ export default async function Home() {
     if (
       difference > 0 &&
       (!biggestWin ||
-        difference > biggestWin.goalDifference)
+        difference >
+          biggestWin.goalDifference)
     ) {
       const opponentId = isHome
         ? match.away_team_id
         : match.home_team_id;
 
+      const opponentTeam = safeTeams.find(
+        (team) => team.id === opponentId
+      );
+
       const opponent =
-        safeTeams.find(
-          (team) => team.id === opponentId
-        )?.name || "Opponent";
+        opponentTeam?.name || "Opponent";
+
+      const langsningTeam = safeTeams.find(
+        (team) => team.id === LANGSNING_ID
+      );
 
       biggestWin = {
         score: `${langsningScore}–${opponentScore}`,
         opponent,
+        competition: match.competition,
+        langsningCrestUrl:
+          langsningTeam?.crest_url || null,
+        opponentCrestUrl:
+          opponentTeam?.crest_url || null,
         goalDifference: difference,
       };
     }
   }
 
-  // --------------------------------------------------
-  // QUICK INFO DATA
-  // --------------------------------------------------
-
   const quickInfo = {
     topScorer: {
-      spl: splTopScorer
-        ? {
-            name: splTopScorer.name,
-            goals: splTopScorer.goals,
-          }
-        : null,
+      spl: splTopScorers.map((scorer) => ({
+        playerId: scorer.playerId,
+        name: scorer.name,
+        goals: scorer.goals,
+        imageUrl: scorer.imageUrl,
+      })),
 
-      durand: durandTopScorer
-        ? {
-            name: durandTopScorer.name,
-            goals: durandTopScorer.goals,
-          }
-        : null,
+      durand: durandTopScorers.map((scorer) => ({
+        playerId: scorer.playerId,
+        name: scorer.name,
+        goals: scorer.goals,
+        imageUrl: scorer.imageUrl,
+      })),
 
-      overall: overallTopScorer
-        ? {
-            name: overallTopScorer.name,
-            goals: overallTopScorer.goals,
-          }
-        : null,
+      overall: overallTopScorers.map((scorer) => ({
+        playerId: scorer.playerId,
+        name: scorer.name,
+        goals: scorer.goals,
+        imageUrl: scorer.imageUrl,
+      })),
     },
 
     form,
@@ -259,6 +288,11 @@ export default async function Home() {
       ? {
           score: biggestWin.score,
           opponent: biggestWin.opponent,
+          competition: biggestWin.competition,
+          langsningCrestUrl:
+            biggestWin.langsningCrestUrl,
+          opponentCrestUrl:
+            biggestWin.opponentCrestUrl,
         }
       : null,
   };
@@ -271,7 +305,6 @@ export default async function Home() {
 
       <NextMatch />
 
-      {/* CLUB UPDATE */}
       <section className="px-4 py-5 sm:px-6">
         <div className="mx-auto w-full max-w-7xl">
           <QuickInfo data={quickInfo} />
