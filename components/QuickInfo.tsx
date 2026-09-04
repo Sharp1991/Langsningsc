@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Scorer = {
   playerId: number | null;
@@ -59,6 +59,7 @@ export default function QuickInfo({
 
   const [current, setCurrent] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     if (cards.length <= 1 || isPaused) return;
@@ -190,7 +191,28 @@ export default function QuickInfo({
         </div>
       </div>
 
-      <div className="min-h-[230px] px-5 py-6 sm:px-7 sm:py-7">
+      <div
+        className="min-h-[230px] touch-pan-y px-5 py-6 transition-transform duration-300 sm:px-7 sm:py-7"
+        onTouchStart={(event) => {
+          touchStartX.current = event.touches[0]?.clientX ?? null;
+        }}
+        onTouchEnd={(event) => {
+          if (touchStartX.current === null) return;
+
+          const endX = event.changedTouches[0]?.clientX ?? touchStartX.current;
+          const deltaX = endX - touchStartX.current;
+
+          if (Math.abs(deltaX) >= 50) {
+            setCurrent((prev) =>
+              deltaX < 0
+                ? (prev + 1) % cards.length
+                : (prev - 1 + cards.length) % cards.length
+            );
+          }
+
+          touchStartX.current = null;
+        }}
+      >
         {card.id === "top-scorer" && (
           <div>
             <div className="mb-5">
@@ -495,7 +517,7 @@ export default function QuickInfo({
               onClick={() => setCurrent(index)}
               className={`h-1.5 rounded-full transition-all ${
                 index === current
-                  ? "w-8 bg-[#c8102e]"
+                  ? "w-8 scale-110 bg-[#c8102e] shadow-sm"
                   : "w-2 bg-black/15"
               }`}
             />
