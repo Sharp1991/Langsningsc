@@ -72,7 +72,7 @@ export default function QuickInfo({
 
     const timer = setInterval(() => {
       setCurrent((prev) => (prev + 1) % cards.length);
-    }, 5500);
+    }, 12000);
 
     return () => clearInterval(timer);
   }, [cards.length, isPaused]);
@@ -180,7 +180,7 @@ export default function QuickInfo({
             </p>
 
             <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-black/65">
-              {card.label} · 2026 SEASON
+              {card.label} · 2026–27 SEASON
             </p>
           </div>
 
@@ -221,7 +221,7 @@ export default function QuickInfo({
               </h2>
 
               <p className="mt-1 text-xs text-black/65">
-                Langsning FC · 2026 season
+                Langsning FC · 2026–27 season
               </p>
             </div>
 
@@ -495,7 +495,7 @@ export default function QuickInfo({
                 </p>
 
                 <p className="mt-1 text-xs text-black/55">
-                  Biggest winning margin · 2026 season
+                  Biggest winning margin · 2026–27 season
                 </p>
               </>
             ) : (
@@ -508,8 +508,20 @@ export default function QuickInfo({
       </div>
 
       {cards.length > 1 && (
-        <div className="flex items-center justify-center gap-2 border-t border-black/10 px-5 py-3">
-          {cards.map((item, index) => (
+        <div className="flex items-center justify-center gap-3 border-t border-black/10 px-5 py-3">
+          <button
+            type="button"
+            onClick={() =>
+              setCurrent((prev) => (prev - 1 + cards.length) % cards.length)
+            }
+            aria-label="Previous Quick Info"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-white text-lg text-[#1c1817] shadow-sm transition hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-[#c8102e]/30"
+          >
+            ←
+          </button>
+
+          <div className="flex items-center justify-center gap-2">
+            {cards.map((item, index) => (
             <button
               key={item.id}
               type="button"
@@ -521,7 +533,19 @@ export default function QuickInfo({
                   : "w-2 bg-black/15"
               }`}
             />
-          ))}
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              setCurrent((prev) => (prev + 1) % cards.length)
+            }
+            aria-label="Next Quick Info"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 bg-white text-lg text-[#1c1817] shadow-sm transition hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-[#c8102e]/30"
+          >
+            →
+          </button>
         </div>
       )}
     </div>
