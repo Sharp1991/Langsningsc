@@ -315,7 +315,7 @@ export default function MatchesPage() {
                           className="text-3xl font-semibold text-[#1c1817] sm:text-4xl"
                           style={{ fontFamily: "'Fraunces', serif" }}
                         >
-                          {season}
+                          {season === "2026" ? "2026-27" : season}
                         </h2>
                       </div>
 
