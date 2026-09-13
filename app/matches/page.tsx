@@ -139,7 +139,8 @@ export default function MatchesPage() {
             crest_url
           )
         `
-        );
+        )
+        .or("home_team_id.eq.1,away_team_id.eq.1");
 
       if (error) {
         console.error("MATCHES ERROR:", error);
