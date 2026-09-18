@@ -7,7 +7,7 @@ import Link from "next/link";
 const links = [
   { href: "/", label: "Home" },
   { href: "/matches", label: "Matches" },
-  { href: "/articles", label: "Articles" },
+  { href: "/articles", label: "News" },
   { href: "/players", label: "Players" },
   { href: "/history", label: "History" },
   { href: "/gallery", label: "Gallery" },
