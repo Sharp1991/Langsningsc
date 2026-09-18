@@ -13,9 +13,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://langsningsc.vercel.app"),
+  alternates: {
+    canonical: "/",
+  },
   title: "Langsning FC Fan Hub",
   description:
     "The home of Langsning FC — matches, players, stories, history and statistics.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
   openGraph: {
     title: "Langsning FC Fan Hub",
     description:
