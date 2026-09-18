@@ -43,3 +43,10 @@ h3 {
     font-size: 90%;
   }
 }
+
+
+@media (max-width: 767px) {
+  .data-centre-content {
+    zoom: 0.85;
+  }
+}

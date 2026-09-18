@@ -461,13 +461,13 @@ export default async function DataCentrePage() {
     <>
       <Navbar />
       <main className="min-h-screen bg-slate-50 pt-20">
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-5 py-8 sm:py-10">
+      <div className="data-centre-content"><section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-5 py-10">
           <p className="text-xs font-black uppercase tracking-[0.2em] text-red-600">
             The Data Centre
           </p>
 
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
+          <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">
           </h1>
 
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
@@ -477,7 +477,7 @@ export default async function DataCentrePage() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl px-5 py-8">
+      <div className="data-centre-content mx-auto max-w-7xl px-5 py-8">
         <section>
           <div className="mb-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
@@ -488,7 +488,7 @@ export default async function DataCentrePage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-4 gap-4">
             <StatCard label="Matches" value={totalMatches} />
             <StatCard label="Points" value={resultPoints} />
             <StatCard label="Goals scored" value={goalsFor} />
@@ -516,7 +516,7 @@ export default async function DataCentrePage() {
             </h2>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-5">
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <h3 className="text-lg font-black text-slate-950">Results</h3>
 
@@ -576,7 +576,7 @@ export default async function DataCentrePage() {
             </h2>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-5">
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <h3 className="text-lg font-black text-slate-950">
                 Goals by half
@@ -633,7 +633,7 @@ export default async function DataCentrePage() {
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="mt-5 grid grid-cols-4 gap-4">
             <StatCard
               label="Earliest goal"
               value={earliestGoal?.minute || "—"}
@@ -659,7 +659,7 @@ export default async function DataCentrePage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-4 gap-4">
             <StatCard label="Scored first" value={scoredFirst} />
             <StatCard label="Conceded first" value={concededFirst} />
             <StatCard label="Won after scoring first" value={scoredFirstWins} />
@@ -684,7 +684,7 @@ export default async function DataCentrePage() {
             </h2>
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-5">
             <div className="rounded-2xl border border-slate-200 bg-white p-6">
               <h3 className="text-lg font-black text-slate-950">Home</h3>
 
@@ -725,7 +725,7 @@ export default async function DataCentrePage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="grid grid-cols-4 gap-4">
             <StatCard label="Most common scoreline" value={mostCommonScoreline} />
             <StatCard label="Biggest win" value={`${biggestWinMargin} goal${biggestWinMargin === 1 ? "" : "s"}`} />
             <StatCard label="Biggest defeat" value={`${biggestLossMargin} goal${biggestLossMargin === 1 ? "" : "s"}`} />
@@ -750,6 +750,7 @@ export default async function DataCentrePage() {
             />
           </div>
         </section>
+      </div>
       </div>
       </main>
     </>
