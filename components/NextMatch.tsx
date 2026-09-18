@@ -205,7 +205,10 @@ export default function NextMatch() {
           )
         `
         )
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .or(
+          `home_team_id.eq.${LANGSNING_TEAM_ID},away_team_id.eq.${LANGSNING_TEAM_ID}`
+        );
 
       if (upcomingError) {
         console.error("NEXT MATCH ERROR:", upcomingError);
