@@ -21,7 +21,7 @@ export default async function ArticlesPage() {
     .select(
       "id, title, slug, excerpt, category, published_date, image_url"
     )
-    .order("published_date", { ascending: false, nullsFirst: false });
+    .order("id", { ascending: false });
 
   if (error) {
     console.error("ARTICLES PAGE ERROR:", error);
