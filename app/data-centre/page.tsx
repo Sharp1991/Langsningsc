@@ -187,7 +187,7 @@ export default async function DataCentrePage() {
     throw new Error(matchesError.message);
   }
 
-  const allMatches = (matchesData || []) as Match[];
+  const allMatches = (matchesData || []).map((m) => ({ ...m, home_team: Array.isArray(m.home_team) ? m.home_team[0] : m.home_team, away_team: Array.isArray(m.away_team) ? m.away_team[0] : m.away_team })) as Match[];
 
   const matches = allMatches.filter(
     (match) =>
