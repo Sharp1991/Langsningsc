@@ -37,3 +37,9 @@ h3 {
   background: var(--red);
   color: white;
 }
+
+@media (max-width: 767px) {
+  html {
+    font-size: 90%;
+  }
+}
