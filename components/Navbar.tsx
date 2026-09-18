@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -16,6 +17,7 @@ const links = [
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <header className="fixed top-0 left-0 z-50 w-full bg-[#c8102e]/95 backdrop-blur-sm">
@@ -47,7 +49,7 @@ export default function Navbar() {
             <Link
               key={l.label}
               href={l.href}
-              className="text-white hover:text-white transition"
+              className={`relative text-white transition after:absolute after:-bottom-2 after:left-0 after:h-0.5 after:bg-white after:transition-all ${pathname === l.href ? "after:w-full" : "after:w-0 hover:after:w-full"}`}
             >
               {l.label}
             </Link>
@@ -70,7 +72,7 @@ export default function Navbar() {
               key={l.label}
               href={l.href}
               onClick={() => setOpen(false)}
-              className="py-3 border-b border-white/10 text-white hover:text-white transition"
+              className={`py-3 border-b border-white/10 text-white transition ${pathname === l.href ? "font-bold" : ""}`}
             >
               {l.label}
             </Link>
