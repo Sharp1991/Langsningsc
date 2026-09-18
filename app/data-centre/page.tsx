@@ -1,5 +1,6 @@
 
 import { supabase } from "@/lib/supabase";
+import Navbar from "@/components/Navbar";
 
 const LANGSNING_ID = 1;
 
@@ -457,15 +458,16 @@ export default async function DataCentrePage() {
   );
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <>
+      <Navbar />
+      <main className="min-h-screen bg-slate-50 pt-20">
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-7xl px-5 py-8 sm:py-10">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-600">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-red-600">
             The Data Centre
           </p>
 
           <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
-            Langsning FC
           </h1>
 
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
@@ -478,7 +480,7 @@ export default async function DataCentrePage() {
       <div className="mx-auto max-w-7xl px-5 py-8">
         <section>
           <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-600">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
               Langsning Snapshot
             </p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">
@@ -506,7 +508,7 @@ export default async function DataCentrePage() {
 
         <section className="mt-10">
           <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-600">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
               Results & Consistency
             </p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">
@@ -566,7 +568,7 @@ export default async function DataCentrePage() {
 
         <section className="mt-10">
           <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-600">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
               Scoring Patterns
             </p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">
@@ -613,7 +615,7 @@ export default async function DataCentrePage() {
 
                       <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
                         <div
-                          className="h-full rounded-full bg-sky-600"
+                          className="h-full rounded-full bg-red-600"
                           style={{ width: `${width}%` }}
                         />
                       </div>
@@ -649,7 +651,7 @@ export default async function DataCentrePage() {
 
         <section className="mt-10">
           <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-600">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
               Match Behaviour
             </p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">
@@ -674,7 +676,7 @@ export default async function DataCentrePage() {
 
         <section className="mt-10">
           <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-600">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
               Home vs Away
             </p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">
@@ -715,7 +717,7 @@ export default async function DataCentrePage() {
 
         <section className="mt-10 pb-12">
           <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-600">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
               Records
             </p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">
@@ -749,6 +751,7 @@ export default async function DataCentrePage() {
           </div>
         </section>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

@@ -11,6 +11,7 @@ const links = [
   { href: "/players", label: "Players" },
   { href: "/history", label: "History" },
   { href: "/gallery", label: "Gallery" },
+  { href: "/data-centre", label: "Data Centre" },
 ];
 
 export default function Navbar() {
