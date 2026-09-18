@@ -21,7 +21,9 @@ type Goal = {
   match_id: number;
   minute: string | null;
   team_id: number | null;
+  player_id: number | null;
   player_name_raw: string | null;
+  competition: string;
 };
 
 function parseMinute(value: string | null) {
@@ -197,11 +199,26 @@ export default async function DataCentrePage() {
 
   const matchIds = matches.map((match) => match.id);
 
-  const { data: eventsData } = matchIds.length
+  const { data: durandMatchesData } = await supabase
+    .from("matches")
+    .select("id, home_team_id, away_team_id")
+    .eq("competition", "Durand Cup")
+    .eq("season", "2026")
+    .or(`home_team_id.eq.${LANGSNING_ID},away_team_id.eq.${LANGSNING_ID}`)
+    .not("home_score", "is", null)
+    .not("away_score", "is", null);
+
+  const durandMatchIds = (durandMatchesData || []).map((match) => match.id);
+
+  const scorerMatchIds = Array.from(
+    new Set([...matchIds, ...durandMatchIds])
+  );
+
+  const { data: eventsData } = scorerMatchIds.length
     ? await supabase
         .from("match_events")
-        .select("id, match_id, minute, team_id, player_name_raw")
-        .in("match_id", matchIds)
+        .select("id, match_id, minute, team_id, player_id, player_name_raw")
+        .in("match_id", scorerMatchIds)
         .ilike("type", "goal")
         .order("id", { ascending: true })
     : { data: [] };
@@ -211,6 +228,25 @@ export default async function DataCentrePage() {
   const uniqueGoals = Array.from(
     new Map(goals.map((goal) => [goal.id, goal])).values()
   );
+
+  const goalMatchIds = Array.from(
+    new Set(uniqueGoals.map((goal) => goal.match_id))
+  );
+
+  const { data: scorerMatchData } = goalMatchIds.length
+    ? await supabase
+        .from("matches")
+        .select("id, competition")
+        .in("id", goalMatchIds)
+    : { data: [] };
+
+  const competitionByMatch = new Map(
+    (scorerMatchData || []).map((match) => [match.id, match.competition])
+  );
+
+  for (const goal of uniqueGoals) {
+    goal.competition = competitionByMatch.get(goal.match_id) || "";
+  }
 
   const goalsByMatch = new Map<number, Goal[]>();
 
@@ -240,22 +276,6 @@ export default async function DataCentrePage() {
   let scoredFirstLosses = 0;
   let cameFromBehindToWin = 0;
   let cameFromBehindToDraw = 0;
-
-  let homePlayed = 0;
-  let homeWins = 0;
-  let homeDraws = 0;
-  let homeLosses = 0;
-  let homeGoals = 0;
-  let homeConceded = 0;
-  let homeCleanSheets = 0;
-
-  let awayPlayed = 0;
-  let awayWins = 0;
-  let awayDraws = 0;
-  let awayLosses = 0;
-  let awayGoals = 0;
-  let awayConceded = 0;
-  let awayCleanSheets = 0;
 
   const periodLabels = [
     "1–15",
@@ -322,24 +342,6 @@ export default async function DataCentrePage() {
 
     mostGoalsScored = Math.max(mostGoalsScored, gf);
     mostGoalsConceded = Math.max(mostGoalsConceded, ga);
-
-    if (langHome) {
-      homePlayed++;
-      homeGoals += gf;
-      homeConceded += ga;
-      if (result === "W") homeWins++;
-      if (result === "D") homeDraws++;
-      if (result === "L") homeLosses++;
-      if (ga === 0) homeCleanSheets++;
-    } else {
-      awayPlayed++;
-      awayGoals += gf;
-      awayConceded += ga;
-      if (result === "W") awayWins++;
-      if (result === "D") awayDraws++;
-      if (result === "L") awayLosses++;
-      if (ga === 0) awayCleanSheets++;
-    }
 
     const matchGoals = [...(goalsByMatch.get(match.id) || [])].sort(
       (a, b) => (parseMinute(a.minute)?.sort ?? 999) - (parseMinute(b.minute)?.sort ?? 999)
@@ -457,6 +459,145 @@ export default async function DataCentrePage() {
     0
   );
 
+  const scorerMap = new Map<number, {
+    playerId: number;
+    name: string;
+    photoUrl: string | null;
+    splGoals: number;
+    durandGoals: number;
+  }>();
+
+  for (const goal of uniqueGoals) {
+    if (goal.team_id !== LANGSNING_ID || !goal.player_id) continue;
+
+    const existing = scorerMap.get(goal.player_id) || {
+      playerId: goal.player_id,
+      name: goal.player_name_raw || "Unknown",
+      photoUrl: null,
+      splGoals: 0,
+      durandGoals: 0,
+    };
+
+    if (goal.competition === "Shillong Premier League") {
+      existing.splGoals++;
+    } else if (goal.competition === "Durand Cup") {
+      existing.durandGoals++;
+    }
+
+    scorerMap.set(goal.player_id, existing);
+  }
+
+  const { data: scorerPlayers } = scorerMap.size
+    ? await supabase
+        .from("players")
+        .select("id, name, photo_url")
+        .in("id", Array.from(scorerMap.keys()))
+    : { data: [] };
+
+  for (const player of scorerPlayers || []) {
+    const scorer = scorerMap.get(player.id);
+    if (!scorer) continue;
+
+    scorer.name = player.name || scorer.name;
+    scorer.photoUrl = player.photo_url || null;
+  }
+
+  const topScorers = Array.from(scorerMap.values())
+    .sort(
+      (a, b) =>
+        b.splGoals +
+        b.durandGoals -
+        (a.splGoals + a.durandGoals) ||
+        a.name.localeCompare(b.name)
+    );
+
+  const topScorerGoals = topScorers.length
+    ? topScorers[0].splGoals + topScorers[0].durandGoals
+    : 0;
+
+  const topScorerPlayers = topScorers.filter(
+    (player) => player.splGoals + player.durandGoals === topScorerGoals
+  );
+
+  const tableMap = new Map<number, {
+    teamId: number;
+    name: string;
+    played: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    goalsFor: number;
+    goalsAgainst: number;
+    points: number;
+  }>();
+
+  for (const match of allMatches) {
+    const teams = [
+      {
+        id: match.home_team_id,
+        name: match.home_team?.name || "Unknown",
+        gf: match.home_score,
+        ga: match.away_score,
+      },
+      {
+        id: match.away_team_id,
+        name: match.away_team?.name || "Unknown",
+        gf: match.away_score,
+        ga: match.home_score,
+      },
+    ];
+
+    for (const team of teams) {
+      const row = tableMap.get(team.id) || {
+        teamId: team.id,
+        name: team.name,
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        points: 0,
+      };
+
+      row.played++;
+      row.goalsFor += team.gf;
+      row.goalsAgainst += team.ga;
+
+      if (team.gf > team.ga) {
+        row.wins++;
+        row.points += 3;
+      } else if (team.gf === team.ga) {
+        row.draws++;
+        row.points += 1;
+      } else {
+        row.losses++;
+      }
+
+      tableMap.set(team.id, row);
+    }
+  }
+
+  const leagueTable = Array.from(tableMap.values()).sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+
+    const gdA = a.goalsFor - a.goalsAgainst;
+    const gdB = b.goalsFor - b.goalsAgainst;
+
+    if (gdB !== gdA) return gdB - gdA;
+    if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
+
+    return a.name.localeCompare(b.name);
+  });
+
+  const langsningTableRow = leagueTable.find(
+    (team) => team.teamId === LANGSNING_ID
+  );
+
+  const langsningPosition = langsningTableRow
+    ? leagueTable.findIndex((team) => team.teamId === LANGSNING_ID) + 1
+    : null;
+
   return (
     <>
       <Navbar />
@@ -507,6 +648,155 @@ export default async function DataCentrePage() {
         </section>
 
         <section className="mt-10">
+        <div className="mb-5">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
+            Table & Scoring
+          </p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">
+            League position and leading scorer
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-5">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <h3 className="text-lg font-black text-slate-950">
+              2026 Shillong Premier League
+            </h3>
+
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full min-w-[620px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="pb-3 pr-3">#</th>
+                    <th className="pb-3 pr-3">Team</th>
+                    <th className="pb-3 px-2 text-center">P</th>
+                    <th className="pb-3 px-2 text-center">W</th>
+                    <th className="pb-3 px-2 text-center">D</th>
+                    <th className="pb-3 px-2 text-center">L</th>
+                    <th className="pb-3 px-2 text-center">GD</th>
+                    <th className="pb-3 pl-2 text-center">Pts</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {leagueTable.map((team, index) => {
+                    const isLangsning = team.teamId === LANGSNING_ID;
+                    const goalDifference =
+                      team.goalsFor - team.goalsAgainst;
+
+                    return (
+                      <tr
+                        key={team.teamId}
+                        className={
+                          isLangsning
+                            ? "border-b border-red-200 bg-red-50 font-black text-slate-950"
+                            : "border-b border-slate-100 text-slate-700"
+                        }
+                      >
+                        <td className="py-3 pr-3">
+                          {index + 1}
+                        </td>
+
+                        <td className="py-3 pr-3">
+                          {team.name}
+                          {isLangsning && (
+                            <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+                              Langsning
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-2 py-3 text-center">
+                          {team.played}
+                        </td>
+                        <td className="px-2 py-3 text-center">
+                          {team.wins}
+                        </td>
+                        <td className="px-2 py-3 text-center">
+                          {team.draws}
+                        </td>
+                        <td className="px-2 py-3 text-center">
+                          {team.losses}
+                        </td>
+                        <td className="px-2 py-3 text-center">
+                          {goalDifference > 0
+                            ? `+${goalDifference}`
+                            : goalDifference}
+                        </td>
+                        <td className="pl-2 py-3 text-center">
+                          {team.points}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="mt-4 text-[11px] text-slate-400">
+              Calculated from recorded 2026 Shillong Premier League matches in Supabase.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-6">
+            <h3 className="text-lg font-black text-slate-950">
+              Top scorer
+            </h3>
+
+            {topScorerPlayers.length ? (
+              <div className="mt-5 space-y-4">
+                {topScorerPlayers.map((player) => {
+                  const total =
+                    player.splGoals + player.durandGoals;
+
+                  return (
+                    <div
+                      key={player.playerId}
+                      className="flex items-center gap-4"
+                    >
+                      {player.photoUrl ? (
+                        <img
+                          src={player.photoUrl}
+                          alt={player.name}
+                          className="h-16 w-16 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-400">
+                          —
+                        </div>
+                      )}
+
+                      <div>
+                        <p className="text-2xl font-black tracking-tight text-slate-950">
+                          {player.name}
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-red-600">
+                          {total} total goals
+                        </p>
+
+                        <p className="mt-1 text-xs text-slate-500">
+                          SPL: {player.splGoals} · Durand Cup: {player.durandGoals}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <p className="pt-2 text-xs font-medium text-slate-400">
+                  Shillong Premier League + Durand Cup · 2026
+                </p>
+              </div>
+            ) : (
+              <p className="mt-5 text-sm text-slate-500">
+                No recorded goal scorers.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-10">
           <div className="mb-5">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
               Results & Consistency
@@ -671,47 +961,6 @@ export default async function DataCentrePage() {
               label="Current unbeaten"
               value={currentStreak(results, ["W", "D"])}
             />
-          </div>
-        </section>
-
-        <section className="mt-10">
-          <div className="mb-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-600">
-              Home vs Away
-            </p>
-            <h2 className="mt-1 text-2xl font-black text-slate-950">
-              Venue split
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-5">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h3 className="text-lg font-black text-slate-950">Home</h3>
-
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <StatCard label="Played" value={homePlayed} />
-                <StatCard label="Record" value={`${homeWins}-${homeDraws}-${homeLosses}`} />
-                <StatCard
-                  label="Goals / match"
-                  value={homePlayed ? (homeGoals / homePlayed).toFixed(2) : "0.00"}
-                />
-                <StatCard label="Clean sheets" value={homeCleanSheets} />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h3 className="text-lg font-black text-slate-950">Away</h3>
-
-              <div className="mt-5 grid grid-cols-2 gap-3">
-                <StatCard label="Played" value={awayPlayed} />
-                <StatCard label="Record" value={`${awayWins}-${awayDraws}-${awayLosses}`} />
-                <StatCard
-                  label="Goals / match"
-                  value={awayPlayed ? (awayGoals / awayPlayed).toFixed(2) : "0.00"}
-                />
-                <StatCard label="Clean sheets" value={awayCleanSheets} />
-              </div>
-            </div>
           </div>
         </section>
 
