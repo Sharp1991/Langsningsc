@@ -16,6 +16,7 @@ export default async function PlayersPage() {
   const { data: players, error } = await supabase
     .from("players")
     .select("id,name,position,nationality,photo_url,Jersey")
+    .eq("team_id", 1)
     .order("Jersey", { ascending: true, nullsFirst: false })
     .order("name", { ascending: true });
 
