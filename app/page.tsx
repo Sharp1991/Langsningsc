@@ -7,6 +7,8 @@ import Footer from "@/components/Footer";
 import QuickInfo from "@/components/QuickInfo";
 import { supabase } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+
 const LANGSNING_ID = 1;
 
 export default async function Home() {
@@ -20,7 +22,7 @@ export default async function Home() {
     supabase
       .from("articles")
       .select("*")
-      .order("published_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(4),
 
     supabase
