@@ -182,7 +182,7 @@ export default async function DataCentrePage() {
       away_team:teams!matches_away_team_id_fkey(name)
     `)
     .eq("competition", "Shillong Premier League")
-    .eq("season", "2026")
+    .eq("season", "2026-27")
     .not("home_score", "is", null)
     .not("away_score", "is", null)
     .order("date", { ascending: true });
@@ -205,7 +205,7 @@ export default async function DataCentrePage() {
     .from("matches")
     .select("id, home_team_id, away_team_id")
     .eq("competition", "Durand Cup")
-    .eq("season", "2026")
+    .eq("season", "2026-27")
     .or(`home_team_id.eq.${LANGSNING_ID},away_team_id.eq.${LANGSNING_ID}`)
     .not("home_score", "is", null)
     .not("away_score", "is", null);
