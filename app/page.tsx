@@ -30,10 +30,13 @@ export default async function Home() {
       .select(
         "id,date,competition,season,home_team_id,away_team_id,home_score,away_score,status"
       )
-      .eq("season", "2026")
       .or(
         `home_team_id.eq.${LANGSNING_ID},away_team_id.eq.${LANGSNING_ID}`
       )
+      .in("competition", [
+        "Shillong Premier League",
+        "IndianOil Durand Cup",
+      ])
       .order("date", { ascending: false }),
 
     supabase
